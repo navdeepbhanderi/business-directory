@@ -1,0 +1,52 @@
+[
+  {
+    "id": "restaurants",
+    "name": "Restaurants",
+    "icon": "🍽️"
+  },
+  {
+    "id": "shopping",
+    "name": "Shopping",
+    "icon": "🛍️"
+  },
+  {
+    "id": "healthcare",
+    "name": "Healthcare",
+    "icon": "🏥"
+  },
+  {
+    "id": "beauty",
+    "name": "Beauty & Wellness",
+    "icon": "💄"
+  },
+  {
+    "id": "automotive",
+    "name": "Automotive",
+    "icon": "🚗"
+  },
+  {
+    "id": "education",
+    "name": "Education",
+    "icon": "🎓"
+  },
+  {
+    "id": "entertainment",
+    "name": "Entertainment",
+    "icon": "🎬"
+  },
+  {
+    "id": "services",
+    "name": "Professional Services",
+    "icon": "💼"
+  },
+  {
+    "id": "hotels",
+    "name": "Hotels & Accommodation",
+    "icon": "🏨"
+  },
+  {
+    "id": "fitness",
+    "name": "Fitness & Sports",
+    "icon": "💪"
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "1",
+    "businessId": "1",
+    "userId": "user1",
+    "rating": 5,
+    "text": "Absolutely amazing dining experience! The food was exceptional and the service was top-notch. Highly recommend the lamb chops and the chocolate dessert.",
+    "photos": ["https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400"],
+    "createdAt": "2024-01-15T19:30:00Z",
+    "status": "published"
+  },
+  {
+    "id": "2",
+    "businessId": "1",
+    "userId": "user2",
+    "rating": 4,
+    "text": "Great atmosphere and delicious food. The staff was friendly and attentive. Only minor issue was the wait time for our table, but it was worth it.",
+    "photos": [],
+    "createdAt": "2024-01-10T20:15:00Z",
+    "status": "published"
+  },
+  {
+    "id": "3",
+    "businessId": "2",
+    "userId": "user3",
+    "rating": 4,
+    "text": "Excellent shopping mall with a great variety of stores. The food court has good options and the cinema is modern. Parking can be challenging during peak hours.",
+    "photos": [],
+    "createdAt": "2024-01-12T14:20:00Z",
+    "status": "published"
+  },
+  {
+    "id": "4",
+    "businessId": "2",
+    "userId": "user4",
+    "rating": 3,
+    "text": "Good mall but quite crowded on weekends. Some stores are overpriced. The children's play area is nice for families.",
+    "photos": [],
+    "createdAt": "2024-01-08T16:45:00Z",
+    "status": "published"
+  },
+  {
+    "id": "5",
+    "businessId": "3",
+    "userId": "user5",
+    "rating": 5,
+    "text": "Outstanding medical care. The doctors are highly skilled and the facilities are modern. The emergency department handled my case efficiently and professionally.",
+    "photos": [],
+    "createdAt": "2024-01-14T10:30:00Z",
+    "status": "published"
+  },
+  {
+    "id": "6",
+    "businessId": "3",
+    "userId": "user6",
+    "rating": 4,
+    "text": "Very good hospital with excellent staff. The waiting times can be long but the quality of care makes up for it. Clean and well-maintained facilities.",
+    "photos": [],
+    "createdAt": "2024-01-11T09:15:00Z",
+    "status": "published"
+  },
+  {
+    "id": "7",
+    "businessId": "4",
+    "userId": "user7",
+    "rating": 5,
+    "text": "Fantastic spa experience! The facial treatment was relaxing and effective. The staff is professional and the ambiance is perfect for unwinding.",
+    "photos": [],
+    "createdAt": "2024-01-13T15:00:00Z",
+    "status": "published"
+  },
+  {
+    "id": "8",
+    "businessId": "4",
+    "userId": "user8",
+    "rating": 4,
+    "text": "Nice spa with good services. The massage was excellent and the therapist was skilled. Prices are reasonable for the quality provided.",
+    "photos": [],
+    "createdAt": "2024-01-09T11:30:00Z",
+    "status": "published"
+  },
+  {
+    "id": "9",
+    "businessId": "5",
+    "userId": "user9",
+    "rating": 4,
+    "text": "Good car dealership with knowledgeable sales staff. The service department is reliable and the mechanics are experienced. Fair pricing on both sales and service.",
+    "photos": [],
+    "createdAt": "2024-01-16T13:45:00Z",
+    "status": "published"
+  },
+  {
+    "id": "10",
+    "businessId": "5",
+    "userId": "user10",
+    "rating": 3,
+    "text": "Decent service but the waiting area could be more comfortable. The staff is helpful but sometimes the service takes longer than expected.",
+    "photos": [],
+    "createdAt": "2024-01-07T08:20:00Z",
+    "status": "published"
+  },
+  {
+    "id": "11",
+    "businessId": "1",
+    "userId": "user11",
+    "rating": 2,
+    "text": "Overpriced and overrated. The food was mediocre and the service was slow. Not worth the money at all.",
+    "photos": [],
+    "createdAt": "2024-01-05T18:30:00Z",
+    "status": "flagged"
+  },
+  {
+    "id": "12",
+    "businessId": "4",
+    "userId": "user12",
+    "rating": 1,
+    "text": "Terrible experience. The staff was rude and the facilities were dirty. Would not recommend to anyone.",
+    "photos": [],
+    "createdAt": "2024-01-04T14:15:00Z",
+    "status": "flagged"
+  }
+]

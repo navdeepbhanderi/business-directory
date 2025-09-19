@@ -1,0 +1,158 @@
+You are a senior React engineer. Build a frontend-only, clickable demo that mirrors a local business directory and review platform. Use React + TypeScript + Tailwind CSS + shadcn/ui components, with mocked data and a fake API layer. No real backend, auth, payments, or SSO. The goal is to demonstrate the key user, owner, and admin flows with clean architecture, accessible UI, and real-looking data.
+Tech constraints
+    • Stack: Vite + React 19 + TypeScript, Tailwind CSS v4, shadcn/ui (new-york style), Radix primitives, lucide-react icons.
+    • State: Zustand slices or React Context for minimal global state (auth role, favorites, lists, notifications).
+    • Data: Local JSON seeds in /data; simulate latency with setTimeout; central mock API in /src/lib/api.ts.
+    • Routing: React Router with route-level layouts; preserve query params; 404 route.
+    • i18n: English and Arabic dictionaries in /src/i18n with dir toggle (ltr/rtl).
+    • Accessibility: semantic HTML, labeled controls, aria attributes, focus traps for dialogs/drawers, keyboard nav for menus/combobox.
+    • Theming: light/dark theme switch; Tailwind tokens; brand primary + neutrals.
+Project setup
+    • Initialize Vite + React + TS.
+    • Configure Tailwind v4 with @theme and base styles; add global CSS for shadcn tokens.
+    • Install shadcn/ui, set components.json (style: new-york), generate core primitives: button, input, select, textarea, checkbox, radio-group, switch, slider, dialog, drawer, dropdown-menu, tabs, sheet, sonner (toasts), command, pagination, popover, tooltip, accordion, collapsible, table, card, badge, avatar, progress, skeleton, separator, breadcrumb.
+    • Add path aliases: @ for src.
+    • Add ESLint + Prettier config (tsx, hooks, tailwind class sorting).
+Folder structure
+    • src/app: route elements and layouts
+        ◦ app/root.tsx, app/layouts/SiteLayout.tsx, AdminLayout.tsx, OwnerLayout.tsx
+    • src/pages: top-level route components
+        ◦ Home.tsx, Search.tsx, BusinessProfile.tsx
+        ◦ Auth/SignIn.tsx, Auth/SignUp.tsx, Auth/Otp.tsx
+        ◦ Account/Lists.tsx, Account/Notifications.tsx
+        ◦ Owner/Claim.tsx, Owner/Register.tsx, Owner/Dashboard.tsx
+        ◦ Admin/index.tsx (tabs inside)
+        ◦ Pricing.tsx, NotFound.tsx
+    • src/features: domain UIs
+        ◦ discover, search, business, reviews, owner, admin, payments
+    • src/components: shared UI wrappers over shadcn primitives
+        ◦ nav, header, footer, locale-toggle, theme-toggle, search-hero, filters, result-card, map-panel, rating-stars, media-gallery, review-list, review-breakdown, list-actions, claim-steps, plan-card, data-table
+    • src/store: zustand slices (authSlice.ts, userSlice.ts, listsSlice.ts, uiSlice.ts)
+    • src/lib: api.ts (mock), format.ts, geo.ts, filters.ts
+    • src/i18n: en.ts, ar.ts, index.ts, useLocale.ts
+    • src/data: businesses.json, categories.json, reviews.json, offers.json, users.json, admin.json
+    • src/assets: logos, placeholders
+High-level routes and flows
+    • “/” Home/Discover
+        ◦ Hero search (Command + Input), category chips, featured carousels, recent reviews.
+    • “/search” Directory Search
+        ◦ Controls: keyword, category, location (mock suggest), rating min, “open now”, distance slider.
+        ◦ Sort: best rated, most reviewed, nearest, newest.
+        ◦ Layout: sticky filters (desktop), bottom sheet filters (mobile), list/map toggle with placeholder pins.
+        ◦ Infinite scroll; result-card hover highlights map pin.
+    • “/business/:slug” Business Profile
+        ◦ Header: name, badges (Verified/Claimed), rating, category, actions (Call/Email/Web disabled).
+        ◦ Tabs: About, Services, Offers, Media (photos/videos), Reviews.
+        ◦ Review breakdown bars, review list, “Write review” dialog disabled submit in demo.
+        ◦ Save and Add-to-List actions.
+    • “/auth/*” Auth & Onboarding
+        ◦ Sign up/in, social buttons disabled, guest continue banner.
+        ◦ OTP UX mock, optional Age and Occupation fields.
+    • “/account/lists” Bookmarks & Lists
+        ◦ Favorites and custom lists CRUD UI (client state only).
+    • “/account/notifications” Notification settings
+        ◦ Toggles for offers, reviews on bookmarked, location-based promotions.
+    • “/owner/claim” Claim listing wizard (3 steps)
+        ◦ Step 1: verify ownership (simple form), Step 2: provide documents (upload UI disabled), Step 3: review & submit → success screen.
+    • “/owner/register” New business registration
+        ◦ Multi-section form: details, location, media, categories, services; submit → success screen.
+    • “/owner/dashboard” Business dashboard (only shell)
+        ◦ KPI cards (Views, Calls, Messages, Saves—static), profile completeness Progress, latest reviews with Reply drawer mock.
+    • “/admin” Admin console (tabs in-page)
+        ◦ Users: search/filter, Ban/Unban, Reset Password (mock)
+        ◦ Listings: approve/reject claimed listings and new registrations (dialogs with notes)
+        ◦ Reviews: reported reviews moderation
+        ◦ Pricing/Plans: CRUD UI for plans and features checklist (stored in local JSON)
+        ◦ Premium placements: drag-and-drop featured carousel order
+    • “/pricing” Plans with Subscribe modal (select payment gateway radio, submit → success toast; set user premium in local state)
+    • “*” 404 Not Found
+Data and mock API
+    • Provide realistic Bahrain-focused seed data:
+        ◦ businesses.json: id, slug, name, categoryIds, rating, reviewCount, address, geo {lat,lng}, hours, contact, media, services, offers, verified, claimed.
+        ◦ categories.json: id, name, icon.
+        ◦ reviews.json: id, businessId, userId, rating, text, createdAt, status.
+        ◦ users.json: id, name, role (guest|user|owner|admin), favorites, lists.
+        ◦ admin.json: pricingPlans, premiumPlacements, reportedReviews.
+    • src/lib/api.ts
+        ◦ export async functions with artificial latency and error rate:
+            ▪ searchBusinesses(params), getBusiness(slug), getReviews(businessId), addToFavorites, createList, addToList, getOwnerDashboard, getAdminQueues, approveListing, rejectListing, etc.
+        ◦ Use in components via hooks or React Query-lite mimic:
+            ▪ Create useAsync hook and use it across pages to show Skeletons and handle error/empty states.
+State and roles
+    • authSlice: role (guest, user, owner, admin), userId, premium flag.
+    • listsSlice: favorites, custom lists CRUD.
+    • uiSlice: theme, locale, map/list toggle, filters open/closed.
+UI specifics per module
+    • Search/Filters
+        ◦ Use Popover + Command for category/location selects.
+        ◦ Distance slider; Rating min with star selector; “Open now” Switch.
+        ◦ Chips show active filters; “Clear all” button.
+    • Result cards
+        ◦ Image, name, category badges, rating stars, review count, short address, “Open now” status.
+        ◦ Hover effect, CTA “View”.
+    • Map panel
+        ◦ Placeholder map with pins (div boxes); highlight sync with list selection.
+        ◦ Skeleton shimmer while “loading”.
+    • Business Profile
+        ◦ Media gallery: grid + Dialog lightbox; Tabs Photos/Videos.
+        ◦ Review breakdown mini chart: stacked bars with Tailwind classes.
+        ◦ Write Review Dialog: form disabled on submit with tooltip copy.
+    • Owner Dashboard
+        ◦ Cards: Card + Progress; Table for latest reviews with Reply Drawer mock.
+    • Admin
+        ◦ DataTable with column filters; Row actions; Confirm Dialogs; Status Badge variants.
+        ◦ Pricing: PlanCard with feature checklist and inline edit.
+        ◦ Premium placements: DnD using a lightweight sortable library or basic up/down controls to keep deps minimal.
+    • Notifications
+        ◦ Toggle groups; “Test notification” button triggers sonner toast.
+i18n and RTL
+    • Dictionaries: en.ts and ar.ts with keys for nav, filters, profile, reviews, admin, pricing.
+    • LocaleToggle sets html dir and a class on body; mirror paddings and icon chevrons under RTL.
+    • Keep strings centralized; avoid hardcoded text.
+Theming and styles
+    • Add theme tokens to globals; support light/dark; use shadcn Button variants and Card for consistency.
+    • Animations: subtle scale/opacity on cards and dialogs (use tailwind-animate classes).
+Non-functional UX notes
+    • Prominent labels explaining demo state: “Demo only: SSO, OTP, and payments are disabled.”
+    • Badges: Verified business, Claimed, Reported review.
+    • Skeletons for loading and EmptyState components for zero results.
+Acceptance criteria
+    • All routes render with responsive layouts (mobile, tablet, desktop) and basic interaction.
+    • Filters update URL params and re-run fake search; list and map view toggle persists.
+    • Business profile displays data-driven sections; Save/Add-to-list modifies local state.
+    • Claim/Register flows end with success screen; admin can approve a pending item and see it disappear from queue.
+    • Pricing Subscribe modal sets premium flag.
+    • Locale toggle switches language and RTL layout without layout breakage.
+    • Light/dark theme works; focus states visible and keyboard navigation possible in menus and dialogs.
+Tasks for Cursor
+    1. Initialize project, install and configure Tailwind v4 and shadcn/ui, generate base components.
+    2. Scaffold routes, layouts, nav/header/footer with language and theme toggles.
+    3. Create seed JSON data and mock api.ts helpers with latency simulation.
+    4. Implement Home, Search (filters, sort, list/map), and Business Profile pages with real-looking data and skeletons.
+    5. Implement Auth views (SignIn/Up/Otp) with guest mode; Account Lists and Notifications pages with local state.
+    6. Implement Owner Claim, Register, and Dashboard shell.
+    7. Implement Admin console with tabs for Users, Listings, Reviews, Pricing, Premium placements.
+    8. Implement Pricing page and Subscribe modal that toggles premium flag.
+    9. Add i18n (en/ar) and RTL support; ensure accessibility basics.
+    10. Polish: error/empty states, toasts, badges, animations, and 404.
+Deliverables
+    • Running Vite app with the above routes and components.
+    • Clean TypeScript types for entities and API functions.
+    • Minimal README with scripts and notes on demo limitations.
+Command helpers (can be auto-run)
+    • Initialize, install, configure Tailwind, run shadcn init (new-york), add core components, set alias @, generate pages and features folders, create seed JSONs, create zustand slices, create api.ts, and start dev server.
+Notes
+    • Keep dependencies lean.
+    • Prefer shadcn primitives and Tailwind utilities over custom CSS.
+    • Avoid implementing real SSO, OTP, maps, or payments—use mocks and clear labels.
+
+⁂
+
+    1. https://mobisoftinfotech.com/resources/blog/react-19-shadcn-ui-integration-tutorial 
+    2. https://ui.shadcn.com/docs/tailwind-v4 
+    3. https://ui.shadcn.com/docs/installation/manual 
+    4. https://www.youtube.com/watch?v=AM1e4QQQ-QU 
+    5. https://apidog.com/blog/shadcn-ui-in-react-js/ 
+    6. https://dev.to/taronvardanyan/create-a-ui-kit-with-vite-react-typescript-tailwind-css-shadcnui-npm-linking-5h9k 
+    7. https://blog.cubed.run/building-a-scalable-design-system-in-react-with-tailwind-css-and-shadcn-ui-6274d69897c0 
+    8. https://blogs.n-oms.in/setting-up-react-19-with-tailwind-css-v4-shadcn-ui-yarn-65c79f44e475 

@@ -1,0 +1,385 @@
+[
+  {
+    "id": "1",
+    "slug": "mama-nouvelle",
+    "name": "Mama Nouvelle",
+    "categories": ["restaurants"],
+    "rating": 4.5,
+    "reviewCount": 127,
+    "address": {
+      "line1": "Block 338, Road 3403",
+      "city": "Adliya",
+      "country": "BH",
+      "postalCode": "12345"
+    },
+    "geo": {
+      "lat": 26.2183,
+      "lng": 50.5831
+    },
+    "hours": {
+      "sun": [{ "open": "12:00", "close": "23:00" }],
+      "mon": [{ "open": "12:00", "close": "23:00" }],
+      "tue": [{ "open": "12:00", "close": "23:00" }],
+      "wed": [{ "open": "12:00", "close": "23:00" }],
+      "thu": [{ "open": "12:00", "close": "23:00" }],
+      "fri": [{ "open": "12:00", "close": "00:00" }],
+      "sat": [{ "open": "12:00", "close": "00:00" }]
+    },
+    "contact": {
+      "phone": "+973 1755 5555",
+      "email": "info@mamanouvelle.com",
+      "website": "https://mamanouvelle.com",
+      "socials": {
+        "instagram": "@mamanouvelle",
+        "facebook": "MamaNouvelleRestaurant"
+      }
+    },
+    "amenities": ["WiFi", "Parking", "Outdoor Seating", "Wheelchair Accessible"],
+    "media": {
+      "photos": [
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800",
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800"
+      ],
+      "videos": []
+    },
+    "services": [
+      {
+        "id": "s1",
+        "name": "Fine Dining",
+        "priceMin": 25,
+        "priceMax": 50,
+        "durationMin": 90
+      },
+      {
+        "id": "s2",
+        "name": "Private Events",
+        "priceMin": 100,
+        "priceMax": 200,
+        "durationMin": 180
+      },
+      {
+        "id": "s3",
+        "name": "Catering",
+        "priceMin": 15,
+        "priceMax": 30,
+        "durationMin": 60
+      }
+    ],
+    "offers": [
+      {
+        "id": "o1",
+        "title": "Weekend Brunch Special",
+        "description": "Enjoy our signature brunch menu every weekend",
+        "validFrom": "2024-01-01",
+        "validTo": "2024-12-31",
+        "terms": "Valid on weekends only, not applicable with other offers"
+      }
+    ],
+    "verified": true,
+    "claimed": true,
+    "description": "A contemporary restaurant offering modern Middle Eastern cuisine with a French twist, located in the heart of Adliya."
+  },
+  {
+    "id": "2",
+    "slug": "city-center-bahrain",
+    "name": "City Centre Bahrain",
+    "categories": ["shopping"],
+    "rating": 4.2,
+    "reviewCount": 89,
+    "address": {
+      "line1": "Sheikh Khalifa Bin Salman Highway",
+      "city": "Manama",
+      "country": "BH",
+      "postalCode": "12345"
+    },
+    "geo": {
+      "lat": 26.2183,
+      "lng": 50.5831
+    },
+    "hours": {
+      "sun": [{ "open": "10:00", "close": "22:00" }],
+      "mon": [{ "open": "10:00", "close": "22:00" }],
+      "tue": [{ "open": "10:00", "close": "22:00" }],
+      "wed": [{ "open": "10:00", "close": "22:00" }],
+      "thu": [{ "open": "10:00", "close": "22:00" }],
+      "fri": [{ "open": "10:00", "close": "23:00" }],
+      "sat": [{ "open": "10:00", "close": "23:00" }]
+    },
+    "contact": {
+      "phone": "+973 1755 0000",
+      "email": "info@citycentre.com.bh",
+      "website": "https://citycentre.com.bh",
+      "socials": {
+        "instagram": "@citycentre_bh",
+        "facebook": "CityCentreBahrain"
+      }
+    },
+    "amenities": ["WiFi", "Parking", "Wheelchair Accessible", "ATM"],
+    "media": {
+      "photos": [
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
+        "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=800"
+      ],
+      "videos": []
+    },
+    "services": [
+      {
+        "id": "s1",
+        "name": "Shopping",
+        "priceMin": 0,
+        "priceMax": 1000,
+        "durationMin": 30
+      },
+      {
+        "id": "s2",
+        "name": "Entertainment",
+        "priceMin": 5,
+        "priceMax": 25,
+        "durationMin": 60
+      },
+      {
+        "id": "s3",
+        "name": "Dining",
+        "priceMin": 10,
+        "priceMax": 50,
+        "durationMin": 45
+      }
+    ],
+    "offers": [
+      {
+        "id": "o1",
+        "title": "Summer Sale",
+        "description": "Up to 50% off on selected items",
+        "validFrom": "2024-06-01",
+        "validTo": "2024-08-31",
+        "terms": "Valid on selected items only, while stocks last"
+      }
+    ],
+    "verified": true,
+    "claimed": true,
+    "description": "Bahrain's premier shopping destination featuring international brands, entertainment, and dining options."
+  },
+  {
+    "id": "3",
+    "slug": "king-hamad-university-hospital",
+    "name": "King Hamad University Hospital",
+    "categories": ["healthcare"],
+    "rating": 4.7,
+    "reviewCount": 203,
+    "address": {
+      "line1": "Building 2435, Road 2835",
+      "city": "Busaiteen",
+      "country": "BH",
+      "postalCode": "12345"
+    },
+    "geo": {
+      "lat": 26.2578,
+      "lng": 50.6119
+    },
+    "hours": {
+      "sun": [{ "open": "00:00", "close": "23:59" }],
+      "mon": [{ "open": "00:00", "close": "23:59" }],
+      "tue": [{ "open": "00:00", "close": "23:59" }],
+      "wed": [{ "open": "00:00", "close": "23:59" }],
+      "thu": [{ "open": "00:00", "close": "23:59" }],
+      "fri": [{ "open": "00:00", "close": "23:59" }],
+      "sat": [{ "open": "00:00", "close": "23:59" }]
+    },
+    "contact": {
+      "phone": "+973 1744 0000",
+      "email": "info@khu.edu.bh",
+      "website": "https://khu.edu.bh"
+    },
+    "amenities": ["Parking", "Wheelchair Accessible", "Emergency Services"],
+    "media": {
+      "photos": [
+        "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800",
+        "https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800"
+      ],
+      "videos": []
+    },
+    "services": [
+      {
+        "id": "s1",
+        "name": "Emergency Care",
+        "priceMin": 0,
+        "priceMax": 0,
+        "durationMin": 30
+      },
+      {
+        "id": "s2",
+        "name": "Specialized Medicine",
+        "priceMin": 50,
+        "priceMax": 200,
+        "durationMin": 30
+      },
+      {
+        "id": "s3",
+        "name": "Surgery",
+        "priceMin": 500,
+        "priceMax": 5000,
+        "durationMin": 120
+      }
+    ],
+    "offers": [],
+    "verified": true,
+    "claimed": true,
+    "description": "A state-of-the-art medical facility providing comprehensive healthcare services to the community."
+  },
+  {
+    "id": "4",
+    "slug": "spa-c-beauty",
+    "name": "Spa C Beauty",
+    "categories": ["beauty"],
+    "rating": 4.3,
+    "reviewCount": 67,
+    "address": {
+      "line1": "Block 317, Road 3809",
+      "city": "Seef",
+      "country": "BH",
+      "postalCode": "12345"
+    },
+    "geo": {
+      "lat": 26.2183,
+      "lng": 50.5831
+    },
+    "hours": {
+      "sun": [{ "open": "10:00", "close": "20:00" }],
+      "mon": [{ "open": "09:00", "close": "21:00" }],
+      "tue": [{ "open": "09:00", "close": "21:00" }],
+      "wed": [{ "open": "09:00", "close": "21:00" }],
+      "thu": [{ "open": "09:00", "close": "21:00" }],
+      "fri": [{ "open": "09:00", "close": "22:00" }],
+      "sat": [{ "open": "09:00", "close": "22:00" }]
+    },
+    "contact": {
+      "phone": "+973 1755 7777",
+      "email": "info@spacbeauty.com",
+      "website": "https://spacbeauty.com",
+      "socials": {
+        "instagram": "@spacbeauty"
+      }
+    },
+    "amenities": ["WiFi", "Parking", "Wheelchair Accessible"],
+    "media": {
+      "photos": [
+        "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800"
+      ],
+      "videos": []
+    },
+    "services": [
+      {
+        "id": "s1",
+        "name": "Facial Treatments",
+        "priceMin": 50,
+        "priceMax": 150,
+        "durationMin": 60
+      },
+      {
+        "id": "s2",
+        "name": "Massage Therapy",
+        "priceMin": 80,
+        "priceMax": 200,
+        "durationMin": 90
+      },
+      {
+        "id": "s3",
+        "name": "Hair Styling",
+        "priceMin": 30,
+        "priceMax": 100,
+        "durationMin": 45
+      }
+    ],
+    "offers": [
+      {
+        "id": "o1",
+        "title": "New Client Special",
+        "description": "50% off your first treatment",
+        "validFrom": "2024-01-01",
+        "validTo": "2024-09-30",
+        "terms": "Valid for first-time clients only"
+      }
+    ],
+    "verified": true,
+    "claimed": false,
+    "description": "Luxury beauty and wellness spa offering premium treatments in a relaxing environment."
+  },
+  {
+    "id": "5",
+    "slug": "almoayyed-automotive",
+    "name": "Almoayyed Automotive",
+    "categories": ["automotive"],
+    "rating": 4.1,
+    "reviewCount": 45,
+    "address": {
+      "line1": "Block 1001, Road 1425",
+      "city": "Sanabis",
+      "country": "BH",
+      "postalCode": "12345"
+    },
+    "geo": {
+      "lat": 26.2183,
+      "lng": 50.5831
+    },
+    "hours": {
+      "sun": [],
+      "mon": [{ "open": "08:00", "close": "18:00" }],
+      "tue": [{ "open": "08:00", "close": "18:00" }],
+      "wed": [{ "open": "08:00", "close": "18:00" }],
+      "thu": [{ "open": "08:00", "close": "18:00" }],
+      "fri": [{ "open": "08:00", "close": "18:00" }],
+      "sat": [{ "open": "08:00", "close": "16:00" }]
+    },
+    "contact": {
+      "phone": "+973 1755 8888",
+      "email": "info@almoayyed.com",
+      "website": "https://almoayyed.com"
+    },
+    "amenities": ["Parking", "Wheelchair Accessible", "Service Center"],
+    "media": {
+      "photos": [
+        "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=800",
+        "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800"
+      ],
+      "videos": []
+    },
+    "services": [
+      {
+        "id": "s1",
+        "name": "Car Sales",
+        "priceMin": 5000,
+        "priceMax": 50000,
+        "durationMin": 60
+      },
+      {
+        "id": "s2",
+        "name": "Service & Maintenance",
+        "priceMin": 50,
+        "priceMax": 500,
+        "durationMin": 120
+      },
+      {
+        "id": "s3",
+        "name": "Parts & Accessories",
+        "priceMin": 10,
+        "priceMax": 1000,
+        "durationMin": 15
+      }
+    ],
+    "offers": [
+      {
+        "id": "o1",
+        "title": "Free Service Check",
+        "description": "Complimentary 20-point vehicle inspection",
+        "validFrom": "2024-01-01",
+        "validTo": "2024-10-31",
+        "terms": "Valid for vehicles under 5 years old"
+      }
+    ],
+    "verified": true,
+    "claimed": true,
+    "description": "Leading automotive dealership offering new and used vehicles with comprehensive service support."
+  }
+]

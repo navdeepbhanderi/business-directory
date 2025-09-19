@@ -1,0 +1,109 @@
+{
+  "pricingPlans": [
+    {
+      "id": "basic",
+      "name": "Basic",
+      "priceMonthly": 0,
+      "features": [
+        "Basic listing",
+        "Up to 5 photos",
+        "Contact information",
+        "Business hours"
+      ]
+    },
+    {
+      "id": "premium",
+      "name": "Premium",
+      "priceMonthly": 29,
+      "features": [
+        "Enhanced listing",
+        "Up to 20 photos",
+        "Video support",
+        "Priority placement",
+        "Analytics dashboard",
+        "Customer reviews management"
+      ]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "priceMonthly": 99,
+      "features": [
+        "Premium listing",
+        "Unlimited photos & videos",
+        "Top placement",
+        "Advanced analytics",
+        "Multi-location support",
+        "Custom branding",
+        "API access",
+        "Dedicated support"
+      ]
+    }
+  ],
+  "premiumPlacements": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+  ],
+  "reportedReviews": [
+    {
+      "id": "report1",
+      "reviewId": "11",
+      "reason": "Inappropriate content",
+      "reportedBy": "user1",
+      "reportedAt": "2024-01-16T10:30:00Z",
+      "status": "pending"
+    },
+    {
+      "id": "report2",
+      "reviewId": "12",
+      "reason": "Spam or fake review",
+      "reportedBy": "user2",
+      "reportedAt": "2024-01-15T14:20:00Z",
+      "status": "pending"
+    }
+  ],
+  "queues": {
+    "claims": [
+      {
+        "id": "claim1",
+        "businessId": "6",
+        "businessName": "New Restaurant",
+        "ownerName": "Ahmed Al-Rashid",
+        "ownerEmail": "ahmed@newrestaurant.com",
+        "ownerPhone": "+973 1234 5678",
+        "role": "Manager",
+        "submittedAt": "2024-01-16T09:00:00Z",
+        "status": "pending",
+        "documents": {
+          "tradeLicense": "pending",
+          "authorizationLetter": "pending"
+        }
+      }
+    ],
+    "registrations": [
+      {
+        "id": "reg1",
+        "businessName": "Tech Solutions Bahrain",
+        "categories": ["professional-services"],
+        "description": "IT consulting and software development services",
+        "address": {
+          "line1": "Block 123, Road 456",
+          "city": "Manama",
+          "country": "BH",
+          "postalCode": "12345"
+        },
+        "contact": {
+          "phone": "+973 9876 5432",
+          "email": "info@techsolutions.bh",
+          "website": "https://techsolutions.bh"
+        },
+        "submittedBy": "user13",
+        "submittedAt": "2024-01-15T16:30:00Z",
+        "status": "pending"
+      }
+    ]
+  }
+}

@@ -1,0 +1,171 @@
+You are a senior React engineer extending an existing React 19 + TypeScript + Tailwind v4 + shadcn/ui demo for a Bahrain local business directory and review platform. Implement detailed, production-like UIs with mocked data and a fake API only. No real backend, SSO, OTP, maps, or payments. Ensure i18n (EN/AR) and RTL, accessibility, and responsive behavior.[1][2][3]
+Scope
+Implement the following next modules with precise UI, data shapes, and flows:
+    • Advanced Search & Filters
+    • Business Profile v2 (media, services, offers, reviews)
+    • Lists & Bookmarks v2
+    • Owner Claim Wizard v2 and Business Registration v2
+    • Owner Dashboard v1
+    • Admin Console v1 (Users, Listings, Reviews, Pricing, Premium)
+    • Pricing & Checkout Mock v1
+    • Notifications Settings v1
+    • i18n/RTL hardening and Accessibility QA kit
+    • Demo Data & Mock API contracts v2[2][3][1]
+Tech constraints
+    • Stack: Vite + React 19 + TS, Tailwind v4, shadcn/ui (new-york), Radix, lucide-react.[1]
+    • Routing: React Router with route layouts, query param preservation, 404.[1]
+    • State: Zustand slices (auth, lists, ui) minimal and predictable.[1]
+    • Data: JSON seeds in /src/data; mock API in /src/lib/api.ts with latency and small error rate.[1]
+    • i18n: /src/i18n en.ts and ar.ts with dir toggle.[1]
+    • A11y: labels, aria-*, keyboard nav, focus traps.[1]
+Module 1 — Advanced Search & Filters
+Goal: Make “/search” feel real with URL-driven filters, sticky desktop filters, mobile bottom sheet, list/map toggle, and infinite scroll.[2][1]
+    • UI
+        ◦ Header: Search input, category select, location combobox, Submit button.[2]
+        ◦ Filters panel: switches and sliders for openNow, minRating, distanceKm; multi-select category; price range mock.[2]
+        ◦ Sort dropdown: best_rated, most_reviewed, nearest, newest.[2]
+        ◦ Active filter chips with “Clear all”.[1]
+        ◦ Results grid (Card) and Map panel toggle; Map uses placeholder div pins synced with selection.[1]
+        ◦ Skeletons for initial and paginated loads.[1]
+    • Data contract
+        ◦ searchBusinesses(params): { q?: string; categoryIds?: string[]; location?: {lat:number; lng:number} | string; openNow?: boolean; minRating?: number; distanceKm?: number; sort?: ‘best_rated’|‘most_reviewed’|‘nearest’|‘newest’; page?: number; pageSize?: number } → { items: Business[], total: number, page: number, pageSize: number } [1]
+    • URL sync
+        ◦ Read/write filters to query string; shallow updates; back/forward friendly.[1]
+    • Acceptance
+        ◦ Filters reflect in URL; reload restores state; paging increments; map/list persists; a11y: all controls labeled; RTL flips paddings and chevrons.[2][1]
+Module 2 — Business Profile v2
+Goal: Rich profile at “/business/:slug” with realistic sections and disabled external actions.[2]
+    • Header
+        ◦ Name, category badges, rating + reviewCount, verified/claimed badges, address, open now state.[2]
+        ◦ Actions: Call/Email/Website (disabled with tooltip “Demo only”).[2]
+    • Tabs
+        ◦ About: description, attributes (amenities), working hours table, social links.[2]
+        ◦ Services: grouped service list with price range and duration chips.[2]
+        ◦ Offers: promo cards (title, terms, validity dates).[2]
+        ◦ Media: grid gallery; Dialog lightbox; Tabs Photos/Videos.[2]
+        ◦ Reviews: rating breakdown bars, sort (newest, highest, lowest, most helpful), filter by rating, review list (Avatar, name, date, text, photos), “Write a review” Dialog with disabled submit.[2]
+    • Data contract
+        ◦ getBusiness(slug): Business
+        ◦ getReviews(businessId, params): { items: Review[], stats: { avg:number; countsByStar: Record<1|2|3|4|5, number> } } [1]
+    • Acceptance
+        ◦ Deep links to tabs; review sort/filter works client-side; lightbox keyboard accessible; RTL mirrored correctly.[1][2]
+Module 3 — Lists & Bookmarks v2
+Goal: Save businesses and manage custom lists.[2]
+    • UI
+        ◦ On cards and profile: “Save” and “Add to list” (Dialog with select existing or create new).[1]
+        ◦ Page “/account/lists”: Favorites section and Custom Lists with inline rename, delete; list detail view shows items with remove.[1]
+    • State + API
+        ◦ listsSlice: favorites: string[]; lists: Array<{ id:string; name:string; items:string[] }>
+        ◦ addToFavorites(businessId), createList(name), addToList(listId, businessId), removeFromList, renameList, deleteList.[1]
+    • Acceptance
+        ◦ All actions optimistic, with toasts; persisted in localStorage; a11y names on Dialogs; RTL ok.[1]
+Module 4 — Owner Claim Wizard v2
+Goal: 3-step wizard with validations and success handoff.[2]
+    • Steps
+        ◦ 1 Ownership: business selector (combobox), role, contact email/phone.[2]
+        ◦ 2 Documents: upload UI (disabled); placeholders for trade license and letter.[2]
+        ◦ 3 Review & Submit: summary list; Confirm dialog; Success screen routes to Owner Dashboard.[2]
+    • Data + Actions
+        ◦ submitClaim(payload) → { id, status: ‘pending’ } then push to admin queues.[1]
+    • Acceptance
+        ◦ Stepper shows progress; next/prev validation; success shows claim ID; admin sees it in queue.[1][2]
+Module 5 — Business Registration v2
+Goal: Full multi-section form for new listing.[2]
+    • Sections
+        ◦ Business details: name, categories multi-select, description.[2]
+        ◦ Location: country=BH fixed, city select, mock map picker; address lines; lat/lng.[2]
+        ◦ Contact: phone, email, website, socials.[2]
+        ◦ Hours: weekly schedule editor.[2]
+        ◦ Media: logo and gallery upload UIs (disabled).[2]
+        ◦ Services: repeater rows { name, priceRange, duration }.[2]
+    • Data
+        ◦ registerBusiness(payload) → { id, status: ‘submitted’ } + queue item.[1]
+    • Acceptance
+        ◦ Client-side validations; success handoff; RTL-friendly form controls and steppers.[1][2]
+Module 6 — Owner Dashboard v1
+Goal: Overview shell with KPIs, profile completeness, recent reviews.[2]
+    • Widgets
+        ◦ KPIs: Views, Calls, Messages, Saves (static numbers).[2]
+        ◦ Profile completeness Progress with checklist of missing fields linking to edit.[1]
+        ◦ Recent reviews table with drawer to “Reply” (disabled).[1]
+    • Data
+        ◦ getOwnerDashboard(ownerId) → { kpis, profileScore, recentReviews }[1]
+    • Acceptance
+        ◦ Works for role=owner only; graceful empty states; a11y landmarks.[1]
+Module 7 — Admin Console v1
+Goal: Tabs for Users, Listings, Reviews, Pricing, Premium placements.[2]
+    • Users
+        ◦ Table: id, name, role, status; search/filter; actions Ban/Unban, Reset Password (mock).[2]
+    • Listings
+        ◦ Pending Claims and Registrations queues; Approve/Reject Dialog with note; status badge.[2]
+    • Reviews
+        ◦ Reported reviews table; actions Dismiss/Remove; reason tooltip.[2]
+    • Pricing
+        ◦ CRUD on plans { id, name, priceMonthly, features: string[] } with inline edit; stores to admin.json.[2]
+    • Premium placements
+        ◦ Drag-and-drop order of featured businesses; fallback up/down controls.[1]
+    • Data
+        ◦ getAdminQueues(), approveListing(id), rejectListing(id, reason), updatePricing(plans), updatePremium(order).[1]
+    • Acceptance
+        ◦ State mutates JSON store; toast confirmations; role=admin gate; keyboard operable tables.[1][2]
+Module 8 — Pricing & Checkout Mock v1
+Goal: Plans page and subscribe flow that toggles premium.[2]
+    • UI
+        ◦ Plan cards with features checklist; “Subscribe” opens Dialog with gateway radios (Card, Benefit, Stripe placeholders).[2]
+    • Action
+        ◦ onConfirm → authSlice.premium=true; success toast; banner shows “Premium Active”.[1]
+    • Acceptance
+        ◦ Works for user/owner roles; RTL mirrored.[2]
+Module 9 — Notifications Settings v1
+Goal: Toggles and a “Test notification” action.[2]
+    • UI
+        ◦ Toggles: offers, reviews on bookmarked, location promotions; frequency radio (instant, daily).[2]
+    • State
+        ◦ notifications in uiSlice; test button triggers toast.[1]
+    • Acceptance
+        ◦ Persists in localStorage; a11y roles correct; RTL ok.[1]
+Module 10 — i18n/RTL Hardening + A11y QA
+Goal: Centralize strings and ensure dir-safe layouts.[2]
+    • i18n
+        ◦ Move all strings to en.ts/ar.ts; ensure date/number formatting helpers.[1]
+        ◦ LocaleToggle flips html dir and sets body class; verify component spacing and icon chevrons.[1]
+    • A11y test kit
+        ◦ Provide test IDs, aria labels, role attributes; keyboard traversal for Menus, Dialogs, Tabs, Combobox, Drawers.[1]
+    • Acceptance
+        ◦ Page-by-page pass for EN and AR with no overflow or misaligned icons.[1][2]
+Data models (augment seeds)
+    • Business
+        ◦ { id, slug, name, categories: string[], rating: number, reviewCount: number, address: { line1, city, country: “BH”, postalCode? }, geo: { lat, lng }, hours: Record<‘sun’|…|‘sat’, { open: string; close: string }[]>, contact: { phone?, email?, website?, socials?: { instagram?, facebook?, tiktok? } }, amenities?: string[], verified: boolean, claimed: boolean, media: { photos: string[]; videos: string[] }, services: { id, name, priceMin?: number, priceMax?: number, durationMin?: number }[], offers: { id, title, description?, validFrom: string, validTo: string, terms?: string }[] } [2]
+    • Review
+        ◦ { id, businessId, userId, rating: 1|2|3|4|5, text, photos?: string[], createdAt: string, status: ‘published’|‘flagged’ } [2]
+    • User
+        ◦ { id, name, role: ‘guest’|‘user’|‘owner’|‘admin’, premium?: boolean, favorites: string[], lists: Array<{ id, name, items: string[] }> } [2]
+    • Admin store
+        ◦ { pricingPlans: Plan[], premiumPlacements: string[], reportedReviews: { id, reviewId, reason }[], queues: { claims: Claim[], registrations: Registration[] } }[2]
+Implementation instructions
+    • Generate or update pages/components for each module with shadcn primitives: Form, Input, Select, Command, Popover, Dialog, Drawer, Tabs, Card, Badge, Table, Progress, Skeleton, Switch, Slider, DropdownMenu, Toasts.[1]
+    • Add hooks: useQueryParams, useAsync, useRTL.[1]
+    • Strengthen /src/lib/api.ts with function signatures listed above; simulate latency (200–600ms) and occasional 5% error to exercise error UIs.[1]
+    • Persist slices to localStorage with versioning; safe hydration on SSR/CSR mismatch not required in Vite SPA.[1]
+Acceptance checklist (global)
+    • All new routes render in mobile/tablet/desktop; sticky filters on md+; bottom-sheet on sm.[2]
+    • URL params fully reflect Search state; reloading keeps state.[2]
+    • Business Profile tabs are linkable; lightbox keyboard accessible; review sorting/filtering works.[2]
+    • Lists CRUD is optimistic with toasts and revert on error; persists locally.[1]
+    • Owner Claim/Register produce queue items visible to Admin and removable via approve/reject.[2]
+    • Pricing subscribe toggles premium and updates header badge/banner.[2]
+    • i18n: EN/AR parity; RTL mirrored paddings, borders, and icons.[1]
+    • A11y: all controls labeled; dialog/drawer focus trapped; tables keyboard operable.[1]
+Deliverables
+    • Updated code implementing modules 1–10 with TypeScript types, components, and pages.[1]
+    • Updated seeds and mock API.[1]
+    • Minimal README section describing new routes, data shapes, and how to toggle roles.[1]
+Notes
+    • Clearly label all disabled external actions with a tooltip explaining demo limits.[2]
+    • Keep dependencies lean; prefer shadcn and Tailwind utilities.[1]
+    • Use realistic Bahrain context strings and sample data.[2]
+⁂
+
+    1. Create-best-detailed-prompt-for-cursor-to-integrat.docx                                                  
+    2. RFP-Web-APP-development.pdf                                                        
+    3. RFP-Web-APP-development.pdf  
