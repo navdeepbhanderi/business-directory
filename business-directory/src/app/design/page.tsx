@@ -51,6 +51,7 @@ const weekend: HourSlot[] = [
 ]
 
 const demoCard = {
+  id: 'demo-1',
   slug: 'demo',
   name: 'Gopi Dining Hall',
   cityName: 'Ahmedabad',

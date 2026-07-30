@@ -24,3 +24,24 @@ export const brandColors = {
   /** `--star` — marigold, identical in both themes. */
   star: '#e8a020',
 } as const
+
+/**
+ * Colours for the MapLibre canvas.
+ *
+ * MapLibre paint expressions are evaluated by WebGL, not CSS, so they cannot
+ * read a custom property. These mirror the tokens they are named after.
+ */
+export const mapColors = {
+  /** `--accent` — small clusters. */
+  cluster: '#363c9c',
+  /** `--accent-hover` — large clusters, so density reads as depth. */
+  clusterLarge: '#2c3184',
+  /** `--success` — an open listing. */
+  pinOpen: '#17734c',
+  /** `--ink-muted` — a closed listing. */
+  pinClosed: '#5a5f70',
+  /** Pin and cluster outline; white in both themes for contrast on tiles. */
+  outline: '#ffffff',
+  /** Cluster count label. */
+  clusterText: '#ffffff',
+} as const

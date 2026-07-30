@@ -1,31 +1,40 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SearchX } from 'lucide-react'
-import { isLocale } from '@/i18n/config'
+import { getMarket, isLocale } from '@/i18n/config'
 import { getDictionary } from '@/i18n/get-dictionary'
-import { getCategories, searchBusinesses, type SearchParams } from '@/lib/queries/businesses'
+import {
+  getAmenityFacets,
+  getCategories,
+  getCities,
+  getLocalityFacets,
+  searchBusinesses,
+} from '@/lib/queries/businesses'
+import {
+  DEFAULT_PAGE_SIZE,
+  parseSearchParams,
+  searchHref,
+  toQueryParams,
+  withChange,
+  type SearchState,
+} from '@/lib/search-params'
 import { localizedText, interpolate } from '@/lib/i18n-content'
 import { formatCount } from '@/lib/format'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { BusinessCard } from '@/components/directory/business-card'
+import { BusinessCard, BusinessCardSkeleton } from '@/components/directory/business-card'
 import { EmptyState } from '@/components/directory/empty-state'
+import { ActiveFilterChips, FilterPanel, SortLinks } from '@/components/directory/filter-bar'
+import { NearMeButton } from '@/components/directory/near-me-button'
+import { ResultsView } from '@/components/directory/results-view'
 
 /**
- * Search results.
+ * Search.
  *
- * Phase 2 wires the query, category, city, sort, and pagination that the RPC
- * already supports, with the URL as the single source of truth. The richer
- * filter surface — geolocation radius, price, amenities, open-now toggle, and
- * the map — is Phase 3.
+ * Every facet is a link, so the URL is the only state and the page works with
+ * JavaScript disabled. The results block is wrapped in Suspense and streamed:
+ * the filter surface and heading paint immediately while the query runs.
  */
-
-const PAGE_SIZE = 12
-
-function parseSort(value: string | undefined): SearchParams['sort'] {
-  const allowed = ['relevance', 'rating', 'reviews', 'nearest', 'newest'] as const
-  return allowed.find((option) => option === value)
-}
 
 export default async function SearchPage({
   params,
@@ -37,33 +46,105 @@ export default async function SearchPage({
   const { locale } = await params
   if (!isLocale(locale)) notFound()
 
-  const query = await searchParams
+  const state = parseSearchParams(await searchParams)
   const dict = await getDictionary(locale)
-  const base = `/${locale}`
 
-  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value)
-
-  const q = first(query.q)?.trim() || undefined
-  const category = first(query.category)
-  const city = first(query.city)
-  const sort = parseSort(first(query.sort))
-  const page = Math.max(1, Number(first(query.page) ?? '1') || 1)
-
-  const [categories, results] = await Promise.all([
+  const [categories, cities, amenities, localities] = await Promise.all([
     getCategories(),
-    searchBusinesses({
-      query: q,
-      categorySlugs: category ? [category] : undefined,
-      citySlug: city,
-      sort,
-      page,
-      pageSize: PAGE_SIZE,
-    }),
+    getCities(),
+    getAmenityFacets(state.city ?? undefined),
+    state.city ? getLocalityFacets(state.city, locale) : Promise.resolve([]),
   ])
 
-  const categoryLabel = new Map(
-    categories.map((c) => [c.slug, localizedText(c.name, c.name_i18n, locale)]),
+  const filterData = {
+    categories: categories.map((c) => ({
+      value: c.slug,
+      label: localizedText(c.name, c.name_i18n, locale),
+    })),
+    cities: cities.map((c) => ({
+      value: c.slug,
+      label: localizedText(c.name, c.name_i18n, locale),
+    })),
+    localities: localities.map((l) => ({
+      value: l.slug,
+      label: localizedText(l.name, l.nameI18n, locale),
+      count: Number(l.count),
+    })),
+    amenities: amenities.map((a) => ({
+      value: a.amenity,
+      label: a.amenity,
+      count: Number(a.listing_count),
+    })),
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl">
+            {state.q
+              ? interpolate(dict.search.resultsFor, { query: state.q })
+              : dict.search.allListings}
+          </h1>
+          <NearMeButton
+            state={state}
+            locale={locale}
+            labels={{
+              nearMe: dict.search.nearMe,
+              locating: dict.search.locating,
+              denied: dict.search.locationDenied,
+            }}
+          />
+        </div>
+
+        <ActiveFilterChips state={state} data={filterData} locale={locale} dict={dict} />
+      </header>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[16rem_1fr]">
+        {/* Sticky on desktop; a plain block above the results on mobile, which
+            keeps it usable without JavaScript. */}
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <h2 className="text-eyebrow text-ink mb-4">{dict.search.filters}</h2>
+          <FilterPanel state={state} data={filterData} locale={locale} dict={dict} />
+        </aside>
+
+        <div>
+          <SortLinks state={state} locale={locale} dict={dict} />
+
+          <Suspense key={JSON.stringify(state)} fallback={<ResultsSkeleton />}>
+            <Results state={state} locale={locale} dict={dict} filterData={filterData} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
   )
+}
+
+function ResultsSkeleton() {
+  return (
+    <div className="mt-6 flex flex-col gap-4" aria-hidden>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <BusinessCardSkeleton key={index} variant="list" />
+      ))}
+    </div>
+  )
+}
+
+async function Results({
+  state,
+  locale,
+  dict,
+  filterData,
+}: {
+  state: SearchState
+  locale: 'en' | 'hi'
+  dict: Awaited<ReturnType<typeof getDictionary>>
+  filterData: {
+    categories: { value: string; label: string }[]
+  }
+}) {
+  const results = await searchBusinesses(toQueryParams(state))
+  const categoryLabel = new Map(filterData.categories.map((c) => [c.value, c.label]))
 
   const cardLabels = {
     verified: dict.business.verified,
@@ -73,105 +154,71 @@ export default async function SearchPage({
     closed: dict.business.closed,
   }
 
-  /** Preserves every active parameter while changing one. */
-  const urlWith = (overrides: Record<string, string | undefined>) => {
-    const next = new URLSearchParams()
-    const current = { q, category, city, sort, page: page > 1 ? String(page) : undefined }
-    for (const [key, value] of Object.entries({ ...current, ...overrides })) {
-      if (value !== undefined && value !== '') next.set(key, String(value))
-    }
-    const qs = next.toString()
-    return `${base}/search${qs ? `?${qs}` : ''}`
+  if (results.items.length === 0) {
+    return (
+      <EmptyState
+        className="mt-6"
+        icon={<SearchX />}
+        title={dict.search.empty.title}
+        body={dict.search.empty.body}
+        action={
+          <Button asChild variant="outline">
+            <Link href={searchHref(locale, { ...state, ...clearedState })}>
+              {dict.search.empty.action}
+            </Link>
+          </Button>
+        }
+      />
+    )
   }
 
-  const activeFilters = [
-    category ? { key: 'category', label: categoryLabel.get(category) ?? category } : null,
-    city ? { key: 'city', label: city } : null,
-  ].filter((f): f is { key: string; label: string } => f !== null)
-
-  const countLabel = interpolate(
-    results.total === 1 ? dict.search.resultCount : dict.search.resultCountPlural,
-    { count: formatCount(results.total, locale) },
-  )
+  const points = results.items.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    rating: row.rating,
+    isOpen: row.is_open,
+  }))
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-3">
-        <h1 className="text-2xl sm:text-3xl">
-          {q ? interpolate(dict.search.resultsFor, { query: q }) : dict.search.allListings}
-        </h1>
-        <p className="num text-ink-muted text-sm">{countLabel}</p>
-
-        {activeFilters.length > 0 && (
-          <ul className="flex flex-wrap items-center gap-2">
-            {activeFilters.map((filter) => (
-              <li key={filter.key}>
-                <Link href={urlWith({ [filter.key]: undefined, page: undefined })}>
-                  <Badge variant="accent" className="gap-1.5 py-1">
-                    {filter.label}
-                    <span aria-hidden>×</span>
-                    <span className="sr-only">{dict.search.clearAll}</span>
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-            <li>
-              <Link
-                href={`${base}/search`}
-                className="text-ink-muted hover:text-ink text-sm underline-offset-4 hover:underline"
-              >
-                {dict.search.clearAll}
-              </Link>
-            </li>
-          </ul>
+    <>
+      <p className="num text-ink-muted mt-4 text-sm">
+        {interpolate(
+          results.total === 1 ? dict.search.resultCount : dict.search.resultCountPlural,
+          { count: formatCount(results.total, locale) },
         )}
-      </header>
+      </p>
 
-      {/* Sort. A plain link set, so it works without JavaScript and every
-          combination is a shareable URL. */}
-      <nav aria-label={dict.search.sortBy} className="mt-6 flex flex-wrap items-center gap-2">
-        <span className="text-ink-muted text-sm">{dict.search.sortBy}</span>
-        {(['relevance', 'rating', 'reviews', 'newest'] as const).map((option) => {
-          const active = (sort ?? 'relevance') === option
-          return (
-            <Link
-              key={option}
-              href={urlWith({ sort: option === 'relevance' ? undefined : option, page: undefined })}
-              aria-current={active ? 'true' : undefined}
-              className={
-                active
-                  ? 'rounded-pill bg-accent-soft text-accent px-3 py-1 text-sm font-medium'
-                  : 'rounded-pill border-line text-ink-muted hover:border-line-strong hover:text-ink border px-3 py-1 text-sm transition-colors duration-(--duration-hover)'
-              }
-            >
-              {dict.search.sort[option]}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {results.items.length === 0 ? (
-        <EmptyState
-          className="mt-10"
-          icon={<SearchX />}
-          title={dict.search.empty.title}
-          body={dict.search.empty.body}
-          action={
-            <Button asChild variant="outline">
-              <Link href={`${base}/search`}>{dict.search.empty.action}</Link>
-            </Button>
+      <div className="mt-6">
+        <ResultsView
+          points={points}
+          bounds={getMarket().bounds}
+          origin={
+            state.lat !== null && state.lng !== null ? { lat: state.lat, lng: state.lng } : null
           }
-        />
-      ) : (
-        <>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          locale={locale}
+          labels={{
+            showMap: dict.search.showMap,
+            hideMap: dict.search.hideMap,
+            unavailable: dict.search.mapUnavailable,
+            searchThisArea: dict.search.searchThisArea,
+          }}
+        >
+          {/* One column of horizontal cards rather than a two-up grid: beside
+              the map the results column is ~500px, and two columns there forced
+              listing names onto three lines. */}
+          <div className="flex flex-col gap-4">
             {results.items.map((row) => (
               <BusinessCard
                 key={row.id}
+                variant="list"
                 locale={locale}
                 labels={cardLabels}
-                href={`${base}/business/${row.slug}`}
+                href={`/${locale}/business/${row.slug}`}
                 business={{
+                  id: row.id,
                   slug: row.slug,
                   name: localizedText(row.name, row.name_i18n, locale),
                   cityName: row.city_name,
@@ -193,39 +240,60 @@ export default async function SearchPage({
               />
             ))}
           </div>
+        </ResultsView>
+      </div>
 
-          {results.pageCount > 1 && (
-            <nav
-              aria-label="Pagination"
-              className="border-line mt-10 flex items-center justify-between gap-4 border-t pt-6"
-            >
-              {page > 1 ? (
-                <Button asChild variant="outline">
-                  <Link href={urlWith({ page: String(page - 1) })} rel="prev">
-                    ←
-                  </Link>
-                </Button>
-              ) : (
-                <span />
-              )}
-
-              <span className="num text-ink-muted text-sm">
-                {page} / {results.pageCount}
-              </span>
-
-              {page < results.pageCount ? (
-                <Button asChild variant="outline">
-                  <Link href={urlWith({ page: String(page + 1) })} rel="next">
-                    →
-                  </Link>
-                </Button>
-              ) : (
-                <span />
-              )}
-            </nav>
+      {results.pageCount > 1 && (
+        <nav
+          aria-label="Pagination"
+          className="border-line mt-10 flex items-center justify-between gap-4 border-t pt-6"
+        >
+          {state.page > 1 ? (
+            <Button asChild variant="outline">
+              <Link
+                href={searchHref(locale, withChange(state, { page: state.page - 1 }))}
+                rel="prev"
+              >
+                ←
+              </Link>
+            </Button>
+          ) : (
+            <span />
           )}
-        </>
+          <span className="num text-ink-muted text-sm">
+            {state.page} / {results.pageCount}
+          </span>
+          {state.page < results.pageCount ? (
+            <Button asChild variant="outline">
+              <Link
+                href={searchHref(locale, withChange(state, { page: state.page + 1 }))}
+                rel="next"
+              >
+                →
+              </Link>
+            </Button>
+          ) : (
+            <span />
+          )}
+        </nav>
       )}
-    </div>
+    </>
   )
 }
+
+const clearedState = {
+  q: null,
+  categories: [],
+  city: null,
+  locality: null,
+  priceLevels: [],
+  amenities: [],
+  minRating: null,
+  openNow: false,
+  lat: null,
+  lng: null,
+  radiusKm: null,
+  page: 1,
+} satisfies Partial<SearchState>
+
+export { DEFAULT_PAGE_SIZE }

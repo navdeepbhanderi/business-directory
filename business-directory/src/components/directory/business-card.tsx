@@ -14,6 +14,8 @@ export type BusinessCardLabels = {
 }
 
 export type BusinessCardData = {
+  /** Used by the map/list hover sync to address this card. */
+  id: string
   slug: string
   name: string
   cityName: string
@@ -59,6 +61,7 @@ export function BusinessCard({
 
   return (
     <article
+      data-business-id={business.id}
       className={cn(
         'group rounded-card border-line bg-surface shadow-card relative border',
         'hover:border-line-strong transition-colors duration-(--duration-hover)',
@@ -97,7 +100,10 @@ export function BusinessCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-4">
+      {/* A container query, not a viewport one: the same card sits in a wide
+          grid cell on the home page and a ~250px column beside the map, and only
+          its own width can decide whether the "Verified" label fits. */}
+      <div className="@container flex flex-1 flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-base leading-snug">
             {/* Stretched link: the whole card is the target, but only the name
@@ -112,7 +118,7 @@ export function BusinessCard({
               title={labels.verified}
             >
               <BadgeCheck className="size-4" aria-hidden />
-              <span className="sr-only sm:not-sr-only">{labels.verified}</span>
+              <span className="sr-only @[20rem]:not-sr-only">{labels.verified}</span>
             </span>
           )}
         </div>

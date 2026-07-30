@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phase 2 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 3 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -621,16 +621,47 @@ forward the **listing detail page** and a **working search page** from Phases 3�
 ### Stage B — The product people see
 
 <details open>
-<summary><b>Phase 3 · Discovery</b> — 4–5 sessions</summary>
+<summary><b>Phase 3 · Discovery</b> — ✅ <b>complete</b></summary>
 
-Home. Search page, server-rendered, streamed, URL-as-state. Every filter wired
-to the RPC — including the ones the prototype faked: real PostGIS distance, real
-timezone-correct open-now, real pagination. MapLibre results map with clustering
-and list-hover sync. Loading, empty, and error states per surface.
+The full facet surface — query, category (multi), city, locality, price,
+amenities, minimum rating, open-now, geolocation radius, and five sorts — plus a
+clustered MapLibre map with list↔map hover sync, and streamed results.
 
-**Exit:** search with query + category + 5km radius + open-now + 4★ returns
-correct results; URL is shareable and restores exactly; back button behaves;
-distances and open badges are true, verified against seed hours.
+**The architectural fix flagged in Phase 2 is done.** A cookie-free
+`lib/supabase/public.ts` client now serves all published reads. The home page
+went from dynamic to **SSG with 1h ISR**. Beyond caching, it is a stronger
+guarantee: as `anon` to Postgres, those queries _cannot_ return an unpublished
+listing — the constraint is structural rather than a convention to remember.
+
+**Delivered against exit criteria**
+
+| Gate                                   | Result                                                     |
+| -------------------------------------- | ---------------------------------------------------------- |
+| query + category + 5km + open-now + 4★ | ✅ narrows to exactly 1 listing, e2e asserted              |
+| URL shareable and restores exactly     | ✅ 25 round-trip unit tests; `parse(serialize(x)) === x`   |
+| Back button behaves                    | ✅ e2e walks two steps back through filter history         |
+| Distances are true                     | ✅ nearest sort verified ascending; radius provably bounds |
+| Open badges are true                   | ✅ every open-now result asserted to show an open badge    |
+| `npm run verify`                       | ✅ lint, typecheck, 72 unit tests, build                   |
+| `npm run test:e2e`                     | ✅ 36 tests                                                |
+
+**Two things this phase got right by being forced to**
+
+1. **The URL is the only state.** Every facet is a `<Link>`, not a bound form
+   control. The surface works with JavaScript disabled, every combination is
+   shareable, and there is no component state that can drift from the URL —
+   which is precisely the bug that broke category browsing in the prototype.
+   The one genuinely interactive control is "Near me", because coordinates
+   cannot come from a link.
+2. **Malformed parameters are dropped, not clamped.** `rating=99` yields no
+   rating filter rather than silently becoming 5 — showing 5★ results under a
+   chip reading "99" would be worse than ignoring it.
+
+**Defect caught during the phase:** adding Suspense made several e2e
+assertions race the skeleton, since Playwright's `count()` does not auto-wait.
+Fixed with an explicit `waitForResults` helper rather than by removing the
+streaming.
+
 </details>
 
 <details open>
@@ -921,6 +952,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 0 complete.** Lint, typecheck, 26 unit tests, build, and 8 e2e tests all green; local Postgres 17.6 up with generated types. Vercel deploy still outstanding                                                                                                                                                                                                                                                      |
 | 2026-07-30 | **Phase 1 complete.** 30 tables, RLS everywhere, `search_businesses` and `is_open_at`, 68 pgTAP assertions, and a 120-listing India seed. Two self-inflicted defects caught by the suite: missing DML grants left every policy unreachable, and identical seeded `created_at` values made two test fixtures the same person                                                                                               |
 | 2026-07-30 | **Phase 2 complete.** Named the product **Openly**; replaced the warm-cream/terracotta palette with indigo + marigold after it was correctly called out as looking like a default rather than a decision. 12 primitives, 9 directory components, app shell, `/design` style guide, `docs/DESIGN.md`. Brought the listing and search pages forward so no card is a dead end                                                |
+| 2026-07-30 | **Phase 3 complete.** Full facet surface, geolocation radius, clustered MapLibre map with list↔map hover sync, streamed results. Switched public reads to a cookie-free anon client, which restored static rendering _and_ made it structurally impossible for those queries to return unpublished data                                                                                                                   |
 
 ---
 
@@ -1016,3 +1048,33 @@ would be meaningless; it belongs with the 10k-row load in Phase 12.
 cookie-bound Supabase client forces it. Pages that only read published data
 should use an anon client so ISR applies. That directly affects the Phase 4 SSG
 target and is not a detail to discover later.
+
+### Phase 3 — Discovery
+
+**Decisions taken during the build**
+
+- **Two Supabase clients, split by purpose.** `public.ts` (anon, cookie-free)
+  for published data; `server.ts` (cookie-bound) only where the answer depends
+  on who is asking. The first choice restores static rendering; the second is
+  what personalised surfaces will need from Phase 5.
+- **Facets are links, not controls.** No JavaScript required, every state
+  shareable, back button correct by construction. Costs a round trip per change,
+  which is the right trade when results come from the database anyway.
+- **Facet options come from the database with counts**, so an option that would
+  return nothing is not offered. Localities are scoped to the selected city.
+- **MapLibre + keyless CARTO tiles**, dynamically imported inside an effect: a
+  visitor who never opens the map never downloads the ~800 kB. If it fails, the
+  list is unaffected and says so.
+- **Hover sync without making cards client components.** The provider delegates
+  `pointerover` on the grid container and reads `data-business-id`; the map
+  highlight is a one-rule stylesheet keyed to the hovered id. The alternative —
+  every card client-side and subscribed to context — is a lot of JavaScript for
+  a hover ring.
+- **Map colours live in `lib/brand.ts`.** WebGL paint expressions cannot read a
+  CSS custom property, so this is the same sanctioned exception as the manifest.
+- **MapLibre's source union is narrowed once at creation** via `instanceof`, not
+  asserted at each use. A blanket `as GeoJSONSource` would have silenced the
+  type checker at exactly the place a library upgrade would break things.
+- **Cards use a container query** for the "Verified" label. The same component
+  sits in a wide grid cell on the home page and a ~250px column beside the map,
+  and only its own width can decide whether the label fits.

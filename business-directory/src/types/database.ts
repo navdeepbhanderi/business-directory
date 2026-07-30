@@ -1354,6 +1354,22 @@ export type Database = {
           review_count: number
         }[]
       }
+      facet_amenities: {
+        Args: { p_city_slug?: string }
+        Returns: {
+          amenity: string
+          listing_count: number
+        }[]
+      }
+      facet_localities: {
+        Args: { p_city_slug: string }
+        Returns: {
+          listing_count: number
+          name: string
+          name_i18n: Json
+          slug: string
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_open_at: {
         Args: { p_at?: string; p_business_id: string }

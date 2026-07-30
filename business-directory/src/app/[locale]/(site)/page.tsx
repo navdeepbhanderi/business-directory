@@ -172,6 +172,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               labels={cardLabels}
               href={`${base}/business/${row.slug}`}
               business={{
+                id: row.id,
                 slug: row.slug,
                 name: localizedText(row.name, row.name_i18n, locale),
                 cityName: row.city_name,

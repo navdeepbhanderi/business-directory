@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 /**
  * Shell integrity.
@@ -7,6 +7,17 @@ import { expect, test } from '@playwright/test'
  * pages that did not exist, and a hamburger button with no handler. These tests
  * exist so none of that can come back quietly.
  */
+
+/**
+ * Results stream in behind a Suspense boundary, so a bare `count()` can run
+ * against the skeleton. Wait for the boundary to resolve — either cards or the
+ * empty state — before counting anything.
+ */
+async function waitForResults(page: Page) {
+  await expect(
+    page.locator('article').first().or(page.getByText('No listings match those filters')),
+  ).toBeVisible({ timeout: 15_000 })
+}
 
 test.describe('navigation', () => {
   test('every link in the shell resolves', async ({ page, request }) => {
@@ -71,6 +82,7 @@ test.describe('navigation', () => {
 test.describe('discovery journey', () => {
   test('a visitor can search, open a listing, and see real detail', async ({ page }) => {
     await page.goto('/en/search?q=bakery')
+    await waitForResults(page)
 
     const firstCard = page.locator('article').first()
     await expect(firstCard).toBeVisible()
@@ -88,8 +100,9 @@ test.describe('discovery journey', () => {
     await page.goto('/en')
     // Regression #3: home wrote `?category=`, search read `categoryIds`, and the
     // mount effect then nulled it — so category browse silently showed everything.
-    await page.getByRole('link', { name: 'Street Food & Chaat' }).click()
+    await page.getByRole('link', { name: 'Street Food & Chaat' }).first().click()
     await expect(page).toHaveURL(/category=street-food/)
+    await waitForResults(page)
 
     const count = await page.locator('article').count()
     expect(count).toBeGreaterThan(0)
@@ -100,6 +113,7 @@ test.describe('discovery journey', () => {
     await page.goto('/en/search')
     await page.getByRole('link', { name: 'Highest rated' }).click()
     await expect(page).toHaveURL(/sort=rating/)
+    await waitForResults(page)
 
     const ratings = await page
       .locator('article .num')
@@ -115,6 +129,7 @@ test.describe('discovery journey', () => {
 
   test('pagination moves through pages', async ({ page }) => {
     await page.goto('/en/search')
+    await waitForResults(page)
     const next = page.locator('a[rel="next"]')
     await expect(next).toBeVisible()
     await next.click()
@@ -149,6 +164,7 @@ test.describe('accessibility basics', () => {
 
   test('every listing image has an alt attribute', async ({ page }) => {
     await page.goto('/en/search?q=bakery')
+    await waitForResults(page)
     const missing = await page
       .locator('img')
       .evaluateAll((nodes) => nodes.filter((n) => !n.hasAttribute('alt')).length)

@@ -9,9 +9,10 @@ Built on Next.js 16 and Supabase, with authorization enforced in the database
 rather than the app, geospatial + full-text search in a single Postgres
 function, and a locale registry designed for India's many languages.
 
-> **Status: Phase 2 complete.** Database, design system, and a working
-> browse-search-listing journey are in place. Auth, reviews, owner tools, and the
-> SEO layer are next. The full roadmap lives in **[PLAN.md](./PLAN.md)**.
+> **Status: Phase 3 complete.** Database, design system, and full discovery —
+> faceted search, geolocation radius, and a clustered map — are in place. Auth,
+> reviews, owner tools, and the SEO layer are next. The roadmap lives in
+> **[PLAN.md](./PLAN.md)**.
 
 ---
 
@@ -93,7 +94,8 @@ src/
 │   ├── negotiate.ts      # Accept-Language resolution (pure, tested)
 │   └── dictionaries/     # en, hi — typed against each other
 ├── lib/
-│   ├── supabase/         # server · client · admin
+│   ├── supabase/         # public (anon, cacheable) · server · client · admin
+│   ├── search-params.ts  # URL-as-state, pure and round-trip tested
 │   ├── env.ts            # zod-validated, at point of use
 │   └── brand.ts          # the one sanctioned hex exception
 ├── proxy.ts              # locale negotiation (Next 16 middleware convention)

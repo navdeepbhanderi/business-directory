@@ -1,12 +1,22 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabasePublicClient } from '@/lib/supabase/public'
 import type { Database } from '@/types/database'
+import type { Locale } from '@/i18n/config'
 
 /**
- * Typed data access for listings.
+ * Typed data access for **public** listing data.
  *
- * Every read goes through the cookie-bound server client, so RLS applies under
- * the caller's identity. There is no code path here that can accidentally see
- * an unpublished listing.
+ * Deliberately uses the anonymous, cookie-free client. Two reasons:
+ *
+ * 1. Reading `cookies()` opts a route out of static rendering, so the
+ *    cookie-bound client was silently forcing every public page to render
+ *    dynamically — including listing pages, where being cached and indexable is
+ *    the whole point.
+ * 2. As `anon` to Postgres, RLS makes it *impossible* for these functions to
+ *    return an unpublished listing. The guarantee is structural, not a
+ *    convention someone has to remember.
+ *
+ * Anything personalised — favourites, an owner's drafts, moderation queues —
+ * belongs in a separate module using `lib/supabase/server.ts`.
  */
 
 type SearchArgs = Database['public']['Functions']['search_businesses']['Args']
@@ -58,7 +68,7 @@ function toArgs(params: SearchParams): SearchArgs {
 }
 
 export async function searchBusinesses(params: SearchParams = {}): Promise<SearchResult> {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const page = params.page ?? 1
   const pageSize = params.pageSize ?? 20
 
@@ -80,7 +90,7 @@ export async function searchBusinesses(params: SearchParams = {}): Promise<Searc
 }
 
 export async function getCategories() {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const { data, error } = await supabase
     .from('categories')
     .select('id, slug, name, name_i18n, icon, sort_order')
@@ -92,7 +102,7 @@ export async function getCategories() {
 }
 
 export async function getCities() {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const { data, error } = await supabase
     .from('cities')
     .select('id, slug, name, name_i18n, state, population_rank')
@@ -105,7 +115,7 @@ export async function getCities() {
 
 /** Weekly hours for a listing, shaped for the client-side hours helpers. */
 export async function getBusinessHours(businessId: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
 
   const [hours, overrides] = await Promise.all([
     supabase
@@ -149,7 +159,7 @@ export async function getBusinessHours(businessId: string) {
  * unpublished listing is indistinguishable from a missing one to a visitor.
  */
 export async function getBusinessBySlug(slug: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
 
   const { data, error } = await supabase
     .from('businesses')
@@ -186,7 +196,7 @@ export async function getBusinessReviews(
   businessId: string,
   options: { sort?: 'newest' | 'highest' | 'lowest' | 'helpful'; limit?: number } = {},
 ) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const limit = options.limit ?? 10
 
   const query = supabase
@@ -249,7 +259,7 @@ export async function getBusinessReviews(
 
 /** Slugs of every published listing — used by generateStaticParams. */
 export async function getPublishedSlugs(limit = 1000) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const { data, error } = await supabase
     .from('businesses')
     .select('slug')
@@ -263,7 +273,7 @@ export async function getPublishedSlugs(limit = 1000) {
 
 /** Aggregate counts for the home page, via one SECURITY DEFINER function. */
 export async function getDirectoryStats() {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabasePublicClient()
   const { data, error } = await supabase.rpc('directory_stats')
   if (error) throw new Error(`directory_stats failed: ${error.message}`)
 
@@ -274,4 +284,29 @@ export async function getDirectoryStats() {
     categories: row?.category_count ?? 0,
     reviews: row?.review_count ?? 0,
   }
+}
+
+/** Amenity facet options, with counts so empty options can be hidden. */
+export async function getAmenityFacets(citySlug?: string) {
+  const supabase = createSupabasePublicClient()
+  const { data, error } = await supabase.rpc('facet_amenities', {
+    ...(citySlug ? { p_city_slug: citySlug } : {}),
+  })
+  if (error) throw new Error(`facet_amenities failed: ${error.message}`)
+  return data ?? []
+}
+
+/** Localities within a city that actually have published listings. */
+export async function getLocalityFacets(citySlug: string, locale: Locale) {
+  const supabase = createSupabasePublicClient()
+  const { data, error } = await supabase.rpc('facet_localities', { p_city_slug: citySlug })
+  if (error) throw new Error(`facet_localities failed: ${error.message}`)
+
+  return (data ?? []).map((row) => ({
+    slug: row.slug,
+    name: row.name,
+    nameI18n: row.name_i18n,
+    count: row.listing_count,
+    locale,
+  }))
 }
