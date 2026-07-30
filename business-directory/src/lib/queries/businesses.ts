@@ -168,7 +168,8 @@ export async function getBusinessBySlug(slug: string) {
       id, slug, name, name_i18n, description, description_i18n,
       address_line1, address_line2, postal_code, phone, email, website,
       price_level, amenities, rating, review_count, verified, status,
-      cities ( slug, name, name_i18n ),
+      latitude, longitude, published_at, updated_at,
+      cities ( slug, name, name_i18n, state ),
       localities ( slug, name, name_i18n ),
       business_photos ( storage_path, alt, sort_order ),
       services ( id, name, name_i18n, price_min, price_max, currency, duration_min, sort_order ),
@@ -309,4 +310,46 @@ export async function getLocalityFacets(citySlug: string, locale: Locale) {
     count: row.listing_count,
     locale,
   }))
+}
+
+/** Same-category listings within walking-ish distance, nearest first. */
+export async function getNearbyBusinesses(businessId: string, limit = 4) {
+  const supabase = createSupabasePublicClient()
+  const { data, error } = await supabase.rpc('nearby_businesses', {
+    p_business_id: businessId,
+    p_limit: limit,
+  })
+  if (error) throw new Error(`nearby_businesses failed: ${error.message}`)
+  return data ?? []
+}
+
+/**
+ * Every published listing with the timestamp the sitemap needs.
+ *
+ * `updated_at` rather than `published_at`: a corrected address or new hours is a
+ * meaningful change to a crawler, and claiming an old date would discourage
+ * re-crawling the page that just changed.
+ */
+export async function getSitemapEntries() {
+  const supabase = createSupabasePublicClient()
+
+  const [businesses, cities, categories] = await Promise.all([
+    supabase
+      .from('businesses')
+      .select('slug, updated_at')
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false }),
+    supabase.from('cities').select('slug').eq('active', true),
+    supabase.from('categories').select('slug').eq('active', true),
+  ])
+
+  if (businesses.error) throw new Error(`sitemap businesses failed: ${businesses.error.message}`)
+  if (cities.error) throw new Error(`sitemap cities failed: ${cities.error.message}`)
+  if (categories.error) throw new Error(`sitemap categories failed: ${categories.error.message}`)
+
+  return {
+    businesses: businesses.data ?? [],
+    cities: (cities.data ?? []).map((row) => row.slug),
+    categories: (categories.data ?? []).map((row) => row.slug),
+  }
 }

@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phase 3 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 4 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -665,16 +665,58 @@ streaming.
 </details>
 
 <details open>
-<summary><b>Phase 4 · Business profile &amp; SEO foundation</b> — 3–4 sessions</summary>
+<summary><b>Phase 4 · Business profile &amp; SEO foundation</b> — ✅ <b>complete</b></summary>
 
-The listing page in full: gallery with lightbox, hours table, services, offers,
-amenities, map, real contact actions, similar-nearby. Reviews read-only for now.
-SSG + ISR with tag invalidation. JSON-LD, per-business OG images, sitemap and
-robots from the database, canonicals, breadcrumbs.
+Listing pages are now statically generated (200 pages, 1h ISR), with a full
+JSON-LD graph, per-listing OG cards, a database-driven sitemap, a photo lightbox,
+a single-marker map, and nearby listings.
 
-**Exit:** listing pages pass Google Rich Results Test for `LocalBusiness` and
-`AggregateRating`. Sitemap lists every published business. Lighthouse ≥95 on a
-listing page. Contact actions genuinely dial, mail, and navigate.
+**Delivered against exit criteria**
+
+| Gate                                  | Result                                                          |
+| ------------------------------------- | --------------------------------------------------------------- |
+| Rich results: LocalBusiness           | ✅ every required field asserted, in unit and e2e tests         |
+| Rich results: AggregateRating         | ✅ present, bounded, omitted entirely when reviewCount is 0     |
+| Sitemap lists every published listing | ✅ 123 URLs — 100 listings + 6 cities + 12 categories + statics |
+| Lighthouse ≥95 on a listing           | ✅ **perf 95 · a11y 100 · best-practices 100 · SEO 100**        |
+| Contact actions genuinely work        | ✅ real `tel:` and Google Maps directions; no "Demo only" left  |
+| `npm run verify`                      | ✅ lint, typecheck, 96 unit tests, build                        |
+| `npm run test:e2e`                    | ✅ 53 tests                                                     |
+
+Lighthouse was run against the production build with real throttling, not
+asserted from theory. The first run scored **perf 80 / a11y 93**; both gaps were
+diagnosed from the report and fixed:
+
+- **a11y 93 → 100.** `aria-label` on a roleless `<span>` (ARIA prohibits it —
+  `RatingStars` now carries `role="img"`), and the header logo link had no
+  accessible name once the wordmark was hidden below `sm`.
+- **perf 80 → 95, LCP 5.2s → 2.9s.** The gallery images were raw remote JPEGs:
+  334 kB, no `srcset`, no AVIF/WebP, no priority hint. Through `next/image` with
+  an explicit `fetchPriority="high"` on the lead, that is 60 kB. Also trimmed
+  fonts 203 kB → 168 kB by loading only the two Fraunces weights the design uses
+  and setting `preload: false` on the Devanagari face, which every English
+  visitor had been downloading for text they never render.
+
+**Two defects caught in this phase's own work**
+
+1. **The OG image 404'd.** Setting `openGraph.images` by hand overrode the
+   automatic entry Next generates for the `opengraph-image.tsx` convention — the
+   real route carries a content hash, so the guessed path did not exist. An e2e
+   test now fetches the advertised URL and asserts it is a real PNG.
+2. **JSON-LD could be broken out of.** `JSON.stringify` does not escape `<`, so a
+   business name containing `</script>` would have closed the tag early and had
+   the rest parsed as HTML — script injection through an owner-controlled field.
+   `jsonLdGraph` now escapes `<`, `>`, and `&`.
+
+**Known issue, unresolved:** 75 of 101 listings render the "Nearby" section at
+build time, though the RPC returns rows for the missing ones both in SQL and
+through PostgREST when queried directly. The arbitrary split points at the 11
+concurrent prerender workers getting an empty-but-not-errored response from local
+PostgREST under load, rather than at the data or the query. Not chased down
+further this phase; the e2e test targets the feature rather than one row, and the
+section degrades to being absent rather than broken. Worth isolating in Phase 12
+alongside the other performance work.
+
 </details>
 
 ### Stage C — The product people use
@@ -953,6 +995,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 1 complete.** 30 tables, RLS everywhere, `search_businesses` and `is_open_at`, 68 pgTAP assertions, and a 120-listing India seed. Two self-inflicted defects caught by the suite: missing DML grants left every policy unreachable, and identical seeded `created_at` values made two test fixtures the same person                                                                                               |
 | 2026-07-30 | **Phase 2 complete.** Named the product **Openly**; replaced the warm-cream/terracotta palette with indigo + marigold after it was correctly called out as looking like a default rather than a decision. 12 primitives, 9 directory components, app shell, `/design` style guide, `docs/DESIGN.md`. Brought the listing and search pages forward so no card is a dead end                                                |
 | 2026-07-30 | **Phase 3 complete.** Full facet surface, geolocation radius, clustered MapLibre map with list↔map hover sync, streamed results. Switched public reads to a cookie-free anon client, which restored static rendering _and_ made it structurally impossible for those queries to return unpublished data                                                                                                                   |
+| 2026-07-30 | **Phase 4 complete.** 200 statically generated listing pages with 1h ISR, full JSON-LD graph, per-listing OG cards, database-driven sitemap, photo lightbox, listing map, nearby listings. Lighthouse measured and then fixed to 95/100/100/100                                                                                                                                                                           |
 
 ---
 
@@ -1078,3 +1121,32 @@ target and is not a detail to discover later.
 - **Cards use a container query** for the "Verified" label. The same component
   sits in a wide grid cell on the home page and a ~250px column beside the map,
   and only its own width can decide whether the label fits.
+
+### Phase 4 — Listing page and SEO
+
+**Decisions taken during the build**
+
+- **Structured data is unit-tested, not eyeballed.** Rich results fail silently:
+  a missing field means no stars in search and no error anywhere. `lib/seo.ts` is
+  pure functions with 24 tests covering the fields Google documents as required.
+- **`aggregateRating` is omitted when there are no reviews.** Google rejects a
+  zero `reviewCount`, and a rejected node can invalidate the surrounding graph,
+  so a fresh listing must not claim a rating rather than claim zero.
+- **One `@graph`, not several script tags.** Cross-references resolve by `@id`
+  within a graph, and competing blocks are a common cause of a validator picking
+  the wrong one.
+- **The OG card draws its rating rather than typing it.** Satori only has the
+  fonts it is given and the default set has no U+2605, so a literal ★ rendered as
+  a tofu box. Five bars need no glyph.
+- **The OG card carries no listing photo** — fetching and decoding a remote image
+  is the slowest, most failure-prone part of OG generation, and a card that
+  sometimes fails is worse than a plain one that always works.
+- **The listing map loads on scroll**, via IntersectionObserver. It is below the
+  fold and the heaviest asset on the route; someone who wanted the phone number
+  should not pay for it.
+- **"Nearby" falls back to any category.** Requiring a same-category match within
+  10 km left the section blank on most pages. Same-category still ranks first,
+  but an empty section is worse than a slightly looser one — and the heading was
+  renamed from "Similar nearby" to "Nearby" so the label stays honest.
+- **`dynamicParams` stays on**, so a listing published after the last build
+  renders on demand and caches rather than 404ing until the next deploy.

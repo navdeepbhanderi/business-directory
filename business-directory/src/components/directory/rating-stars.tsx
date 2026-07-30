@@ -47,7 +47,13 @@ export function RatingStars({
       : `${formatRating(clamped, locale)} / 5 · ${formatCount(count, locale)}`
 
   return (
-    <span className={cn('inline-flex items-center gap-1.5', className)} aria-label={label}>
+    // `role="img"` is required: a bare <span> has no role, and ARIA prohibits
+    // aria-label on roleless generic elements (axe: aria-prohibited-attr).
+    <span
+      role="img"
+      aria-label={label}
+      className={cn('inline-flex items-center gap-1.5', className)}
+    >
       <span className="relative inline-flex" aria-hidden>
         <span className="inline-flex">
           {[0, 1, 2, 3, 4].map((i) => (

@@ -48,6 +48,9 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
           <span className="font-display hidden text-base font-semibold sm:block">
             {dict.meta.title}
           </span>
+          {/* The wordmark is display:none below sm and the tile is aria-hidden,
+              which left the link with no accessible name (axe: link-name). */}
+          <span className="sr-only sm:hidden">{dict.meta.title}</span>
         </Link>
 
         {/* Compact entry point. The full filter surface lives on /search. */}

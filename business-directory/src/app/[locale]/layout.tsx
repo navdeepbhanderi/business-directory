@@ -14,18 +14,26 @@ const inter = Inter({
   display: 'swap',
 })
 
+// Only the two weights the design actually uses. The full variable face is
+// ~119 kB, which is a lot to spend on headings alone.
 const fraunces = Fraunces({
   subsets: ['latin'],
+  weight: ['600', '700'],
   variable: '--font-fraunces',
   display: 'swap',
 })
 
 // Devanagari for Hindi. Each additional script gets its own subset-scoped
 // face rather than one giant multi-script file — see docs/DESIGN.md.
+// `preload: false` deliberately: the @font-face is declared for every page but
+// only `:lang(hi)` text uses it, so preloading made every English visitor
+// download a Devanagari face they will never render.
 const devanagari = Noto_Sans_Devanagari({
-  subsets: ['devanagari', 'latin'],
+  subsets: ['devanagari'],
+  weight: ['400', '600', '700'],
   variable: '--font-noto-devanagari',
   display: 'swap',
+  preload: false,
 })
 
 export function generateStaticParams() {

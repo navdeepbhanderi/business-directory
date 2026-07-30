@@ -9,10 +9,10 @@ Built on Next.js 16 and Supabase, with authorization enforced in the database
 rather than the app, geospatial + full-text search in a single Postgres
 function, and a locale registry designed for India's many languages.
 
-> **Status: Phase 3 complete.** Database, design system, and full discovery —
-> faceted search, geolocation radius, and a clustered map — are in place. Auth,
-> reviews, owner tools, and the SEO layer are next. The roadmap lives in
-> **[PLAN.md](./PLAN.md)**.
+> **Status: Phase 4 complete.** Database, design system, faceted discovery, and
+> statically generated listing pages with full structured data are in place —
+> Lighthouse 95/100/100/100 on a listing. Auth, reviews, and owner tools are
+> next. The roadmap lives in **[PLAN.md](./PLAN.md)**.
 
 ---
 
@@ -96,6 +96,7 @@ src/
 ├── lib/
 │   ├── supabase/         # public (anon, cacheable) · server · client · admin
 │   ├── search-params.ts  # URL-as-state, pure and round-trip tested
+│   ├── seo.ts            # JSON-LD builders, unit tested
 │   ├── env.ts            # zod-validated, at point of use
 │   └── brand.ts          # the one sanctioned hex exception
 ├── proxy.ts              # locale negotiation (Next 16 middleware convention)

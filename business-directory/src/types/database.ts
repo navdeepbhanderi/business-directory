@@ -240,8 +240,10 @@ export type Database = {
           description_i18n: Json
           email: string | null
           id: string
+          latitude: number | null
           locality_id: string | null
           location: unknown
+          longitude: number | null
           market_code: string
           name: string
           name_i18n: Json
@@ -270,8 +272,10 @@ export type Database = {
           description_i18n?: Json
           email?: string | null
           id?: string
+          latitude?: number | null
           locality_id?: string | null
           location: unknown
+          longitude?: number | null
           market_code: string
           name: string
           name_i18n?: Json
@@ -300,8 +304,10 @@ export type Database = {
           description_i18n?: Json
           email?: string | null
           id?: string
+          latitude?: number | null
           locality_id?: string | null
           location?: unknown
+          longitude?: number | null
           market_code?: string
           name?: string
           name_i18n?: Json
@@ -1376,6 +1382,26 @@ export type Database = {
         Returns: boolean
       }
       jsonb_values_text: { Args: { source: Json }; Returns: string }
+      nearby_businesses: {
+        Args: { p_business_id: string; p_limit?: number; p_radius_km?: number }
+        Returns: {
+          address_line1: string
+          city_name: string
+          distance_km: number
+          id: string
+          is_open: boolean
+          locality_name: string
+          name: string
+          name_i18n: Json
+          photo_url: string
+          price_level: number
+          rating: number
+          review_count: number
+          same_category: boolean
+          slug: string
+          verified: boolean
+        }[]
+      }
       owns_business: { Args: { target: string }; Returns: boolean }
       record_audit: {
         Args: {
