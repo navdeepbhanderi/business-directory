@@ -1,0 +1,901 @@
+# India Business Directory — Build Plan
+
+**Status:** Phase 0 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Launch market:** India · **Architecture:** multi-market, multi-locale from day one
+**Goal:** turn a frontend-only prototype into a production-grade, genuinely working
+product — and the strongest case study on
+[navdeepbhanderi.dev](https://navdeepbhanderi.dev).
+
+---
+
+## Table of contents
+
+- [1. Why this project](#1-why-this-project)
+- [2. Locked decisions](#2-locked-decisions)
+- [3. Target architecture](#3-target-architecture)
+- [4. Data model](#4-data-model)
+- [5. Authorization model (RLS)](#5-authorization-model-rls)
+- [6. Design system](#6-design-system)
+- [7. Feature specification](#7-feature-specification)
+- [8. Phase plan](#8-phase-plan)
+- [9. Regression register](#9-regression-register)
+- [10. Quality gates](#10-quality-gates)
+- [11. Out of scope](#11-out-of-scope)
+- [12. Open questions](#12-open-questions)
+- [13. Portfolio case study](#13-portfolio-case-study)
+
+---
+
+## 1. Why this project
+
+Your portfolio's own roadmap asks for _"a third real case study — three genuine
+projects beats two + placeholder."_ This is that project, and it is a better
+showcase than the existing two because of what it forces you to solve:
+
+| What it proves                                    | Why it lands                                                                                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multi-role authorization enforced in the database | RLS policies on a claim/moderation model is a real engineering answer, not a client-side `if (role === 'admin')`                             |
+| Geospatial + full-text search                     | PostGIS radius queries and weighted `tsvector` ranking in one RPC — concrete, benchmarkable                                                  |
+| Moderation workflows with an audit trail          | Claim verification, review reports, reversible admin actions. This is what internal tools actually look like                                 |
+| SEO as a product requirement                      | A directory nobody can find is worthless. Server rendering, JSON-LD rich results, programmatic landing pages                                 |
+| Multilingual done properly                        | A locale registry, per-script typography, and compile-time translation parity — built for eight-plus Indian languages, not a half-flipped UI |
+| Product design judgment                           | A directory designed for scanning and trust, deliberately _not_ in your portfolio's cinematic register                                       |
+
+**The bar:** a stranger lands on it cold, searches, filters, opens a listing,
+reads reviews, signs up, writes a review, saves it to a list — and nothing
+breaks, nothing is a dead end, nothing says "demo only."
+
+### Honest assessment of what exists today
+
+The prototype is ~8,400 lines with a clean directory structure, a well-shaped
+typed service layer in `src/lib/api.ts`, full two-locale key parity (156 keys each),
+and a genuinely thoughtful domain model. `tsc -b` and `vite build` both pass.
+
+It is also non-functional in the ways that matter: reviews never render, search
+results don't link to listings, category browsing silently fails, favorites are
+unreachable dead code, and four of five admin nav links 404. See
+[§9 Regression register](#9-regression-register) for the full audit.
+
+The structure survives. The implementation is replaced.
+
+---
+
+## 2. Locked decisions
+
+| Decision          | Choice                                                                                      | Rationale                                                                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Framework**     | Next.js 16.2, App Router, React 19                                                          | Listings must be server-rendered and indexable — that's the point of a directory. 16 is current stable; starting a greenfield build on the previous major makes no sense |
+| **Design**        | Warm editorial directory, light-first, own identity                                         | Directories are scanned, not admired. Distinct from your portfolio _on purpose_ — designing for the product is the signal                                                |
+| **Backend**       | Supabase (Postgres + PostGIS + Auth + Storage + Edge Functions)                             | Every hard requirement here maps to something Postgres does well                                                                                                         |
+| **Hosting**       | Vercel + Supabase cloud                                                                     | Free tiers cover this; matches portfolio deployment                                                                                                                      |
+| **Language**      | TypeScript 5, `strict`, no `any` in app code                                                | Current prototype has 107 lint errors, mostly `any`. Zero tolerance in the rebuild                                                                                       |
+| **Styling**       | Tailwind CSS 4 + CSS custom-property tokens                                                 | Tokens in one place so light/dark/RTL stay coherent                                                                                                                      |
+| **Components**    | shadcn/ui + Radix, restyled to the new tokens                                               | Keep the accessibility primitives, replace the default look entirely                                                                                                     |
+| **Map**           | MapLibre GL JS + CARTO basemap (keyless)                                                    | No API key, no billing surprise. Mapbox stays a swap-in if vector styling matters later                                                                                  |
+| **Payments**      | Stripe test mode, feature-flagged                                                           | Real Checkout in test mode beats a fake `setTimeout`. Degrades to simulated if keys absent                                                                               |
+| **Email**         | Resend via Supabase Edge Function                                                           | Claim decisions and review notifications are real emails. Dev mode logs to console                                                                                       |
+| **Runtime**       | Node 24 LTS (`.nvmrc`), enforced by `engines`                                               | Node 20 reached EOL 2026-04-30, and `@supabase/supabase-js` ≥ 2.110 requires Node 22+. Vercel defaults to a current LTS anyway                                           |
+| **i18n**          | `/{locale}` path prefix, `proxy.ts` negotiation, locale registry                            | Adding a language is one registry entry plus one dictionary file. Localized DB columns, not just UI strings                                                              |
+| **Launch market** | India — `Asia/Kolkata`, INR, `+91`, locales `en` + `hi`                                     | Home market. Open-now correctness depends on real timezone handling, never the server clock                                                                              |
+| **Seed data**     | ~120 plausible businesses across 6 Indian cities, 12 categories, clearly labelled demo data | 5 businesses can't exercise search, filters, pagination, or a map. India needs several cities to make city pages meaningful                                              |
+| **Repo**          | Rebuild in place under `business-directory/`, phase branches off `main`                     | One commit of history to preserve; nothing to lose                                                                                                                       |
+
+### Deliberately _not_ doing
+
+Light-mode-only, PWA/offline, native apps, live chat, booking/reservations,
+AI features. The project is already ambitious. Adding AI here would dilute what
+it proves — you have an AI case study already.
+
+**Multi-market is in scope as architecture, not as launched markets.** India is
+the only market that ships. But market-specific facts (timezone, currency, dial
+code, bounding box, offered locales) live in a registry rather than scattered
+constants, and every table that needs it carries a country code. Adding a second
+market becomes a data change, not a refactor — which is the interesting claim to
+be able to make, and it costs almost nothing to build in from the start. What we
+are _not_ doing is the operational work a real second market needs: local
+categories, native translation, market-specific moderation, or per-market SEO.
+
+---
+
+## 3. Target architecture
+
+```
+business-directory/
+├── src/
+│   ├── app/
+│   │   ├── [locale]/                    # en | hi  (registry-driven)
+│   │   │   ├── (site)/                  # public shell: header + footer
+│   │   │   │   ├── page.tsx             # home            SSG + ISR
+│   │   │   │   ├── search/page.tsx      # server, streamed results
+│   │   │   │   ├── business/[slug]/     # SSG + ISR  ← the indexable surface
+│   │   │   │   │   ├── page.tsx
+│   │   │   │   │   ├── opengraph-image.tsx
+│   │   │   │   │   └── reviews/page.tsx
+│   │   │   │   ├── c/[category]/        # /c/restaurants
+│   │   │   │   ├── in/[city]/           # /in/ahmedabad
+│   │   │   │   ├── c/[category]/in/[city]/   # programmatic SEO
+│   │   │   │   └── pricing/page.tsx
+│   │   │   ├── (auth)/                  # sign-in, sign-up, otp, callback, reset
+│   │   │   ├── (account)/               # profile, lists, reviews, notifications
+│   │   │   ├── (owner)/                 # register, claim, dashboard, listing editor
+│   │   │   └── (admin)/                 # queues, users, reviews, listings, pricing, audit
+│   │   ├── api/                         # webhooks, revalidate, og fallbacks
+│   │   ├── sitemap.ts robots.ts manifest.ts
+│   │   └── globals.css                  # design tokens live here
+│   ├── components/
+│   │   ├── ui/                          # shadcn primitives, retokenized
+│   │   ├── directory/                   # BusinessCard, RatingStars, OpenNowBadge,
+│   │   │                                # HoursTable, FilterBar, ResultsMap, PhotoGallery
+│   │   ├── reviews/                     # ReviewForm, ReviewList, HelpfulVote, OwnerReply
+│   │   └── layout/                      # Header, MobileNav, Footer, CommandPalette
+│   ├── lib/
+│   │   ├── supabase/                    # server.ts · client.ts · middleware.ts · admin.ts
+│   │   ├── queries/                     # typed data access, one module per domain
+│   │   ├── actions/                     # Server Actions, zod-validated
+│   │   ├── hours.ts                     # open-now, timezone-correct
+│   │   ├── geo.ts                       # distance formatting, bounds
+│   │   └── seo.ts                       # JSON-LD builders
+│   ├── i18n/                            # dictionaries, routing, formatters
+│   └── types/database.ts                # generated by supabase gen types
+├── supabase/
+│   ├── migrations/                      # every schema change, ordered
+│   ├── functions/                       # edge functions (email, og, cron)
+│   ├── tests/                           # pgTAP — RLS policy tests
+│   └── seed.sql
+├── e2e/                                 # Playwright
+└── docs/
+    ├── PLAN.md                          # this file
+    ├── DESIGN.md                        # extracted in Phase 2
+    └── SCHEMA.md                        # generated ERD + policy notes
+```
+
+**Data flow.** Server Components read via `src/lib/queries/*` using the
+cookie-bound Supabase server client — RLS applies to every read. Mutations go
+through Server Actions in `src/lib/actions/*`: zod-validate → call Supabase →
+`revalidateTag`. The browser client is used only where live interactivity
+demands it (map, optimistic favorites, realtime moderation queue). The service-role
+key is confined to `lib/supabase/admin.ts` and never imported into a Client
+Component.
+
+**Caching.** Business pages `revalidate: 3600` plus tag-based invalidation on
+edit or new review. Search is dynamic but the RPC is indexed. Category and city
+landing pages are ISR.
+
+---
+
+## 4. Data model
+
+Postgres with `postgis`, `pg_trgm`, `unaccent`, `citext`.
+
+### Core
+
+```
+profiles                 id → auth.users, full_name, avatar_url, role,
+                         locale, phone, banned_at, created_at
+                         · role: guest | user | owner | admin
+                         · role is NOT self-updatable (trigger-enforced)
+
+categories               id, slug, name, name_i18n jsonb, icon, parent_id,
+                         sort_order
+                         · self-referencing for subcategories
+
+markets                  code (PK, ISO 3166-1 alpha-2), name, timezone,
+                         currency, dial_code, bounds, active
+                         · India is the only active row; the table is what
+                           makes a second market a data change
+
+cities                   id, market_code, slug, name, name_i18n jsonb,
+                         state, centroid, population_rank
+                         · powers /in/[city] landing pages
+
+localities               id, city_id, slug, name, name_i18n jsonb, centroid
+                         · neighbourhood granularity (Navrangpura, Indiranagar)
+
+businesses               id, slug, name, description,
+                         name_i18n jsonb, description_i18n jsonb,
+                         · one jsonb per translatable field keyed by locale,
+                           so adding a language needs no migration
+                         owner_id → profiles, status, verified,
+                         address_line1, address_line2,
+                         locality_id, city_id, market_code, postal_code,
+                         location geography(Point,4326),
+                         phone, email, website, socials jsonb,
+                         price_level (1..4), amenities text[],
+                         rating numeric(2,1), review_count int,      ← denormalized
+                         search_vector tsvector,                     ← generated
+                         published_at, created_at, updated_at
+                         · status: draft | pending | published | rejected | suspended
+
+business_categories      business_id, category_id, is_primary
+business_hours           business_id, day_of_week (0..6), opens, closes
+                         · multiple rows per day = split shifts
+hours_overrides          business_id, date, closed, opens, closes, note
+                         · Eid, Ramadan, National Day — the local-correctness detail
+business_photos          id, business_id, storage_path, alt, alt_i18n jsonb,
+                         sort_order, uploaded_by, created_at
+services                 id, business_id, name, name_i18n jsonb, price_min,
+                         price_max, currency, duration_min
+offers                   id, business_id, title, title_i18n jsonb, description,
+                         valid_from, valid_to, terms
+```
+
+### Reviews & trust
+
+```
+reviews                  id, business_id, author_id, rating (1..5),
+                         body, status, created_at, edited_at
+                         · UNIQUE (business_id, author_id) — one review per person
+                         · CHECK: author cannot own the business
+                         · status: published | flagged | removed
+review_photos            id, review_id, storage_path, sort_order
+review_replies           id, review_id UNIQUE, business_id, author_id, body
+                         · one owner reply per review
+review_votes             review_id, user_id, PRIMARY KEY (review_id, user_id)
+                         · makes "most helpful" real instead of Math.random()
+review_reports           id, review_id, reporter_id, reason, detail,
+                         status, resolved_by, resolved_at, resolution_note
+```
+
+### Ownership & moderation
+
+```
+claims                   id, business_id, claimant_id, role_at_business,
+                         contact_phone, evidence jsonb,
+                         document_paths text[], status,
+                         reviewed_by, reviewed_at, decision_note
+                         · status: pending | approved | rejected | withdrawn
+                         · approval trigger sets businesses.owner_id + verified
+
+audit_log                id, actor_id, action, entity_type, entity_id,
+                         before jsonb, after jsonb, ip_hash, created_at
+                         · every admin action; insert-only via SECURITY DEFINER
+```
+
+### Saved content
+
+```
+favorites                user_id, business_id, created_at, PK (user_id, business_id)
+lists                    id, owner_id, name, description, visibility, share_slug
+                         · visibility: private | unlisted | public
+list_items               list_id, business_id, note, sort_order, added_at
+saved_searches           id, user_id, name, params jsonb, notify
+```
+
+### Monetization & analytics
+
+```
+plans                    id, slug, name, name_i18n jsonb, price_monthly,
+                         currency, features jsonb, sort_order, active
+subscriptions            id, business_id, plan_id, status,
+                         stripe_customer_id, stripe_subscription_id,
+                         current_period_end, cancel_at
+promoted_placements      id, business_id, surface, city_id, category_id,
+                         starts_at, ends_at, weight
+business_events          id, business_id, event_type, occurred_at,
+                         session_hash, referrer, locale
+                         · view | phone_click | website_click | direction_click
+                         | save | share  → powers the owner dashboard with
+                         real numbers instead of a hardcoded 1250
+notification_preferences user_id, offers, reviews_on_saved, city_promotions,
+                         frequency, email_enabled, push_enabled
+```
+
+### Functions, triggers, indexes
+
+| Object                        | Purpose                                                                                                                                                                                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search_businesses(...)` RPC  | The centerpiece: FTS rank + PostGIS `ST_DWithin` distance + open-now + rating filter + promoted weighting + sort + pagination, in one query                                                                                                        |
+| `is_open_at(business_id, ts)` | Timezone-correct against `business_hours` + `hours_overrides`, handles past-midnight closes (`fri 12:00–00:00`)                                                                                                                                    |
+| `businesses.search_vector`    | Generated `tsvector`: name weight A, categories/city/locality B, description C. `english` config for Latin text, `simple` + `unaccent` for Indic scripts (Postgres ships no Hindi stemmer), `pg_trgm` for typo tolerance and transliteration slips |
+| `refresh_business_rating()`   | Trigger on `reviews` → maintains `rating` and `review_count`                                                                                                                                                                                       |
+| `approve_claim(claim_id)`     | `SECURITY DEFINER`: sets owner, flips `verified`, writes `audit_log`, queues email — atomically                                                                                                                                                    |
+| `enforce_profile_role()`      | Blocks self-service role escalation                                                                                                                                                                                                                |
+| Indexes                       | GIN on `search_vector`; GIST on `location`; btree on `(status, published_at)`, `businesses.slug`, `reviews(business_id, status, created_at)`; trigram on `name`                                                                                    |
+
+**Why denormalize `rating`/`review_count`:** search sorts and filters on rating
+across thousands of rows. Aggregating per query doesn't hold up. Trigger-maintained
+columns are the right trade, and being able to explain that trade is the point.
+
+---
+
+## 5. Authorization model (RLS)
+
+This is the most interview-valuable part of the project. RLS is enabled on
+**every** table; the app never trusts a client-side role check.
+
+### Policy matrix
+
+| Table                                                | anon                                 | authenticated user                                 | business owner                                                 | admin                                      |
+| ---------------------------------------------------- | ------------------------------------ | -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ |
+| `businesses`                                         | SELECT `status='published'`          | same                                               | + SELECT/UPDATE own (whitelisted columns), INSERT as `pending` | ALL                                        |
+| `business_hours` `photos` `services` `offers`        | SELECT via published parent          | same                                               | ALL where parent owned                                         | ALL                                        |
+| `reviews`                                            | SELECT `status='published'`          | + INSERT own, UPDATE own ≤24h, DELETE own          | SELECT on own business incl. flagged                           | ALL                                        |
+| `review_replies`                                     | SELECT via published review          | —                                                  | INSERT/UPDATE where review targets own business                | ALL                                        |
+| `review_votes`                                       | —                                    | INSERT/DELETE own, not on own review               | —                                                              | SELECT                                     |
+| `review_reports`                                     | —                                    | INSERT own                                         | SELECT on own business                                         | ALL                                        |
+| `claims`                                             | —                                    | INSERT own, SELECT own, withdraw own               | SELECT own                                                     | ALL + decide                               |
+| `favorites` `lists` `list_items` `saved_searches`    | SELECT public lists via `share_slug` | ALL own                                            | —                                                              | SELECT                                     |
+| `profiles`                                           | —                                    | SELECT public fields, UPDATE own **except `role`** | —                                                              | ALL                                        |
+| `business_events`                                    | INSERT (rate-limited)                | INSERT                                             | SELECT aggregated for own business                             | ALL                                        |
+| `subscriptions`                                      | —                                    | —                                                  | SELECT own                                                     | ALL                                        |
+| `audit_log`                                          | —                                    | —                                                  | —                                                              | SELECT; INSERT only via `SECURITY DEFINER` |
+| `plans` `categories` `cities` `localities` `markets` | SELECT active                        | SELECT active                                      | SELECT active                                                  | ALL                                        |
+
+### Implementation notes worth writing up
+
+1. **Avoid the recursive-RLS trap.** A policy on `businesses` that queries
+   `profiles` to check role, while `profiles` has its own policies, recurses.
+   Solution: mirror `role` into a JWT custom claim via an Auth Hook, read it with
+   a `STABLE` `auth_role()` helper. Document the alternative
+   (`SECURITY DEFINER` helper) and why the claim approach wins.
+2. **Column-level protection.** Owners may edit description, hours, photos, and
+   contact details — never `verified`, `status`, `owner_id`, `rating`. Enforced by
+   a `BEFORE UPDATE` trigger comparing `OLD`/`NEW`, since RLS alone can't gate columns.
+3. **Guests are anon, not a role.** The current app models `guest` as a user role
+   in `localStorage`. In the rebuild, guest = unauthenticated `anon`, and every
+   guest capability is an anon RLS policy. Cleaner and honest.
+4. **Every policy gets a test.** `supabase/tests/*.sql` with pgTAP: assert an owner
+   _cannot_ edit a neighbour's listing, a user _cannot_ review their own business,
+   a non-admin _cannot_ read `audit_log`, nobody can self-promote to admin.
+   Runs in CI. Very few portfolio projects test authorization — this is cheap
+   differentiation.
+
+---
+
+## 6. Design system
+
+Direction: **Warm Editorial Directory.** Paper-warm light default with a real
+dark mode. Editorial serif headings against a clean UI sans. Information-dense
+cards that reward scanning. Restraint in motion — this is a utility people use
+while hungry and in a hurry.
+
+> Phase 2 extracts this section into `docs/DESIGN.md` and expands it, mirroring
+> how `DESIGN.md` works in your portfolio repo.
+
+### Tokens
+
+```
+                       light               dark
+--paper                #FCFBF8             #14130F
+--surface              #FFFFFF             #1C1B17
+--surface-sunken       #F5F3EC             #100F0C
+--ink                  #1A1815             #F4F1EA
+--ink-muted            #6B665C             #A39C8E
+--line                 #E5E0D5             #2E2C26
+--accent               #B4541E  terracotta #D2703A
+--accent-soft          #FBEEE6             #33211A
+--success              #2E6F4E  open now    #4E9B74
+--warning              #A66A00             #D6A03C
+--danger               #B3261E             #E06055
+--star                 #E0A419
+```
+
+Accent is for actions and emphasis only — never large fills. `--success` is
+reserved for open-now truth; never decorative. Semantic tokens only in
+components; raw hex never appears outside `globals.css`.
+
+### Typography
+
+| Role               | Family                                | Notes                                                                                                                                      |
+| ------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Display / headings | **Fraunces** (variable, optical size) | Editorial warmth; the whole personality lives here                                                                                         |
+| UI / body          | **Inter**                             | Dense UI legibility                                                                                                                        |
+| Numerals           | Inter `tabular-nums`                  | Ratings and counts must not jitter                                                                                                         |
+| Devanagari (`hi`)  | **Noto Sans Devanagari**              | Real Devanagari typography, not a Latin fallback. Headings step up in weight since there is no serif counterpart                           |
+| Future scripts     | One subset-scoped face per script     | Tamil, Telugu, Bengali, Gujarati each get their own face. A single multi-script file would bill every visitor for scripts they cannot read |
+
+Scale `1.2` ratio, fluid `clamp()` for display sizes only. Body locked at 16px.
+Each script gets its own line-height and letter-spacing overrides in a single
+`:lang()` block. Devanagari carries matras above and below the headline stroke,
+so it takes `1.75` leading and zero tracking. Adding a script means adding one
+block; nothing else changes.
+
+### Form language
+
+- **Radius** 10px cards · 8px controls · 999px pills
+- **Shadows** two steps only: `--shadow-card` (resting), `--shadow-float`
+  (overlays). No shadow stacking
+- **Borders** hairline `--line` is the primary separator; shadows are secondary
+- **Density** search results target ~7 cards per 1080p viewport. Every card
+  answers: name, category, rating + count, distance, open state, price level,
+  top amenities, primary photo
+- **Motion** 120ms hover, 200ms enter, 260ms overlays, one easing
+  (`cubic-bezier(.2,.8,.2,1)`). Transform and opacity only. Full
+  `prefers-reduced-motion` support
+- **Photography** listing photos are the color. The UI stays quiet so they carry it
+
+### RTL
+
+Logical properties throughout (`ps-*`, `pe-*`, `ms-*`, `me-*`) — no
+`left`/`right`. The prototype's `useRTL()` hook that string-builds `mr-`/`ml-`
+class names is deleted; it's a workaround for a problem Tailwind's logical
+utilities already solve. Icons that imply direction get mirrored; logos and
+media never do. Numbers stay LTR inside RTL text.
+
+### Components to design (beyond shadcn defaults)
+
+`BusinessCard` (grid + list + map-popover variants) · `RatingStars` (display +
+interactive) · `RatingBreakdown` · `OpenNowBadge` · `HoursTable` (today
+highlighted, override notes) · `PriceLevel` · `AmenityChips` · `FilterBar`
+(sticky, collapses to a mobile sheet) · `ActiveFilterChips` · `ResultsMap`
+(clustered, list-hover sync) · `PhotoGallery` + lightbox · `ReviewCard` ·
+`ReviewComposer` · `OwnerReplyBlock` · `VerifiedBadge` · `ClaimBanner` ·
+`KpiTile` · `ModerationQueueRow` · `EmptyState` (per surface, never generic) ·
+`CommandPalette` (⌘K)
+
+Every interactive component ships with loading, empty, error, and disabled
+states specified. "Missing empty state" is a large share of what makes the
+current prototype feel unfinished.
+
+---
+
+## 7. Feature specification
+
+### Public discovery
+
+- **Home** — hero search with category and city autocomplete; browse by category;
+  browse by city; curated collections ("Late-night in Bengaluru", "Best thali in
+  Ahmedabad");
+  featured listings from `promoted_placements`; recently reviewed
+- **Search** — full-text query, category (multi), city and locality, distance from a point or
+  from browser geolocation, open-now, min rating, price level, amenities, sort
+  (relevance · rating · most reviewed · nearest · newest). URL is the single
+  source of truth for state, shareable and back-button correct. Server-rendered
+  first page, streamed. Real pagination
+- **Map view** — clustered markers, bidirectional hover sync with the list,
+  "search this area" on pan, keyboard-navigable, and a genuine non-map fallback
+- **Business profile** — gallery, at-a-glance bar (rating · open state · price ·
+  distance), about, services with prices, live offers, hours table with today
+  highlighted, amenities, map + directions, contact actions (real `tel:` /
+  `mailto:` / website — no "demo only" tooltips), reviews with breakdown and
+  filtering, owner replies, similar businesses nearby, report and share
+- **Category / city landing pages** — `/c/restaurants`, `/in/ahmedabad`,
+  `/c/restaurants/in/ahmedabad`. Editorial intro, filtered results, internal
+  linking. Hundreds of indexable pages from one template
+
+### Reviews
+
+Write with rating, body, and up to 5 photos · edit within 24h with an "edited"
+marker · one review per business per person · cannot review a business you own ·
+helpful votes driving a real "most helpful" sort · owner replies (one per review,
+publicly attributed) · report with reason → moderation queue · rate-limited
+submission · guests see the composer and are prompted to sign in _with their
+draft preserved_
+
+### Accounts
+
+Email + password, Google OAuth, and phone OTP (real, via Supabase) · email
+verification · password reset · profile with avatar upload · favorites ·
+custom lists, shareable via `share_slug` · my reviews · saved searches ·
+notification preferences that actually gate sent email · account deletion
+
+### Business owners
+
+Register a new listing (multi-step, draft-saving, `pending` on submit) · claim
+an existing listing with document upload and a stated verification path ·
+listing editor for whitelisted fields, with a live preview and completeness
+score computed from real data · photo manager with drag-reorder · services and
+offers management · review inbox with reply · dashboard KPIs from real
+`business_events` (views, phone clicks, website clicks, saves, direction taps)
+with trend deltas and a period selector · subscription management
+
+### Admin
+
+Moderation queues (claims · registrations · reported reviews) with counts and
+SLA age · approve/reject with a required reason, emailed to the applicant ·
+user management (search, filter, ban with reason, unban, force reset) ·
+listing management including suspend · category, city and locality management ·
+plan and pricing management · promoted placement scheduling ·
+**audit log** of every action with before/after diffs · realtime queue updates
+
+### Cross-cutting
+
+Full locale parity including DB content, enforced at compile time · JSON-LD `LocalBusiness` +
+`AggregateRating` + `Review` + `BreadcrumbList` (targeting Google rich results —
+a highly visible, screenshot-able win) · per-business OG images · sitemap
+generated from the database · ⌘K command palette · WCAG 2.1 AA · real error
+boundaries and 404/500 pages · rate limiting on every mutation
+
+---
+
+## 8. Phase plan
+
+Twelve phases in four stages. Each phase is independently shippable and ends on
+a demonstrable exit criterion. Effort is in working sessions, deliberately rough.
+
+### Stage A — Foundation
+
+<details open>
+<summary><b>Phase 0 · Scaffold &amp; tooling</b> — ✅ <b>complete</b></summary>
+
+Next.js 16.2 App Router app replacing the Vite setup, on Node 24 LTS. Tailwind 4
+with the full token layer (light + dark, contrast-verified). `strict` TS with
+`noUncheckedIndexedAccess` and `verbatimModuleSyntax`; ESLint flat config with
+`no-explicit-any` and the type-aware `no-unsafe-*` family as errors, plus a
+custom rule banning raw hex outside `globals.css`. Prettier. Supabase CLI local
+stack, migrations directory, typegen script. Vitest + Playwright. GitHub Actions
+across three jobs: verify, database (migrations + pgTAP + stale-types check),
+and e2e.
+
+Locale routing is registry-driven from the start: `proxy.ts` negotiates from
+cookie then `Accept-Language`, dictionaries are accessed by property so a missing
+key is a **compile** error, and each script gets its own subset-scoped font.
+
+**Delivered against exit criteria**
+
+| Gate                | Result                                                    |
+| ------------------- | --------------------------------------------------------- |
+| `npm run lint`      | ✅ 0 errors, 0 warnings                                   |
+| `npm run typecheck` | ✅ clean                                                  |
+| `npm run test`      | ✅ 26 unit tests                                          |
+| `npm run build`     | ✅ `/en` and `/hi` prerendered                            |
+| `npm run test:e2e`  | ✅ 8 e2e tests                                            |
+| Local Supabase      | ✅ Postgres 17.6 up; types generated from the live schema |
+| Styled home page    | ✅ scaffold status page, not a mocked product surface     |
+
+Deployment to Vercel is the one exit criterion still outstanding — it needs the
+repo pushed and the project connected.
+
+</details>
+
+<details open>
+<summary><b>Phase 1 · Data layer</b> — 3–4 sessions</summary>
+
+All migrations from [§4](#4-data-model). Extensions, tables, constraints,
+indexes, triggers. The `search_businesses` RPC and `is_open_at`. Every RLS
+policy from [§5](#5-authorization-model-rls). pgTAP tests for each policy.
+Seed: 12 categories, 6 cities with ~30 localities, ~120 businesses with hours,
+photos, services, offers, and ~800 reviews across ~80 profiles. Generated types.
+
+**Exit:** pgTAP suite green in CI. `search_businesses` returns correct results
+for query + distance + open-now + rating combined, verified by SQL test.
+An owner provably cannot edit a neighbour's listing.
+</details>
+
+<details open>
+<summary><b>Phase 2 · Design system</b> — 3–4 sessions</summary>
+
+`globals.css` tokens, light and dark. Fonts per script. shadcn primitives
+retokenized. The `components/directory/*` inventory built against seed data.
+App shell: header with search, mobile nav that works, footer with no dead links.
+`docs/DESIGN.md` extracted and expanded. A `/design` route as a living style
+guide (dev-only).
+
+**Exit:** style guide renders every component in light, dark, LTR, and RTL.
+Zero raw hex outside `globals.css`. Mobile nav functional.
+</details>
+
+### Stage B — The product people see
+
+<details open>
+<summary><b>Phase 3 · Discovery</b> — 4–5 sessions</summary>
+
+Home. Search page, server-rendered, streamed, URL-as-state. Every filter wired
+to the RPC — including the ones the prototype faked: real PostGIS distance, real
+timezone-correct open-now, real pagination. MapLibre results map with clustering
+and list-hover sync. Loading, empty, and error states per surface.
+
+**Exit:** search with query + category + 5km radius + open-now + 4★ returns
+correct results; URL is shareable and restores exactly; back button behaves;
+distances and open badges are true, verified against seed hours.
+</details>
+
+<details open>
+<summary><b>Phase 4 · Business profile &amp; SEO foundation</b> — 3–4 sessions</summary>
+
+The listing page in full: gallery with lightbox, hours table, services, offers,
+amenities, map, real contact actions, similar-nearby. Reviews read-only for now.
+SSG + ISR with tag invalidation. JSON-LD, per-business OG images, sitemap and
+robots from the database, canonicals, breadcrumbs.
+
+**Exit:** listing pages pass Google Rich Results Test for `LocalBusiness` and
+`AggregateRating`. Sitemap lists every published business. Lighthouse ≥95 on a
+listing page. Contact actions genuinely dial, mail, and navigate.
+</details>
+
+### Stage C — The product people use
+
+<details open>
+<summary><b>Phase 5 · Auth &amp; accounts</b> — 3–4 sessions</summary>
+
+Supabase Auth with `@supabase/ssr` cookie sessions. Email + password, Google
+OAuth, phone OTP. Verification, password reset, profile with avatar upload.
+Middleware route protection; server-side guards on every private page. Profile
+trigger on signup. Account settings, notification preferences, deletion.
+
+**Exit:** sign up → verify → sign in → OAuth → OTP all work. Hitting
+`/admin` as a normal user is blocked _server-side_, and blocked again by RLS
+if the guard were removed. Sessions survive refresh with no hydration flash.
+</details>
+
+<details open>
+<summary><b>Phase 6 · Reviews</b> — 3–4 sessions</summary>
+
+Composer with interactive rating and photo upload. Edit window. One-per-business
+enforcement surfaced kindly in the UI. Helpful votes and a real most-helpful
+sort. Owner replies. Reporting. Rate limiting. Guest draft preservation across
+sign-in. Rating/count triggers verified live.
+
+**Exit:** a real review round-trips: submit → appears → business rating updates
+→ owner replies → another user votes helpful → sort order changes → a third
+user reports it → it lands in the moderation queue.
+</details>
+
+<details open>
+<summary><b>Phase 7 · Favorites &amp; lists</b> — 2 sessions</summary>
+
+Optimistic favorite toggles wired everywhere a card appears — replacing the
+prototype's never-imported `ListsManager`. Custom lists with CRUD, notes,
+reordering, and public sharing via `share_slug`. Saved searches.
+
+**Exit:** favorite from a search card, a map popover, and a listing page; all
+three stay in sync and survive reload. A shared list opens for a signed-out
+visitor.
+</details>
+
+<details open>
+<summary><b>Phase 8 · Owner tools</b> — 4–5 sessions</summary>
+
+Registration wizard with draft saving. Claim flow with document upload and a
+stated verification path. Listing editor on whitelisted columns with live
+preview. Photo manager. Services and offers. Review inbox. Dashboard on real
+`business_events` with trends and a period selector. Event tracking instrumented
+across public surfaces.
+
+**Exit:** register → admin approves → the listing is publicly searchable.
+Claim → approve → owner edits their listing. Dashboard numbers move when you
+browse the public page in another tab. Column-level protection provably blocks
+an owner from self-verifying.
+</details>
+
+<details open>
+<summary><b>Phase 9 · Admin console</b> — 3–4 sessions</summary>
+
+All three queues with counts and age. Approve/reject with required reasons and
+outbound email. User management with ban reasons. Listing suspension. Category,
+city, and plan management. Promoted placement scheduling. Audit log with
+before/after diffs and filtering. Realtime queue updates. Real nested routes —
+fixing the prototype's four 404-ing sidebar links.
+
+**Exit:** every sidebar link resolves. Every mutating action writes an audit
+entry. Two admin sessions see the queue update live. Rejection emails arrive.
+</details>
+
+### Stage D — Make it excellent
+
+<details open>
+<summary><b>Phase 10 · i18n &amp; RTL completion</b> — 3 sessions</summary>
+
+Every string extracted — closing the gap where only 7 of 22 components used
+`useLocale`. Localized DB columns surfaced through the query layer. Third and
+fourth locales added to prove the registry generalises: **Urdu** (validates the
+RTL path end to end) and one Dravidian language, **Tamil** (validates a
+non-Devanagari Indic script and its font pipeline). Locale-aware dates, numbers,
+and INR formatting. Full RTL audit across every page including map, charts, and
+dialogs. Indic search behaviour verified against transliterated queries.
+
+**Exit:** every page reviewed in all four locales with no hardcoded English and
+no clipped or wrongly-mirrored layouts. Searching "chai" and "चाय" both return
+results. `hreflang` in place for every locale. Adding a locale is provably one
+registry entry plus one dictionary file.
+</details>
+
+<details open>
+<summary><b>Phase 11 · SEO scale &amp; monetization</b> — 3 sessions</summary>
+
+Programmatic category × city landing pages with editorial intros and internal
+linking. Collections. Full `Review` and `BreadcrumbList` JSON-LD. Plans page
+from the DB. Stripe test-mode Checkout behind a flag with webhook handling.
+Promoted placements surfacing in search with disclosure. Vercel Analytics.
+
+**Exit:** sitemap in the hundreds of URLs, all rendering with unique metadata.
+A test-mode subscription completes and flips the business to premium via webhook.
+</details>
+
+<details open>
+<summary><b>Phase 12 · Hardening &amp; launch</b> — 3–4 sessions</summary>
+
+Accessibility pass to AA: axe clean, full keyboard traversal, focus management
+in overlays, screen-reader pass on the core journey. Performance: bundle
+splitting (from a 644 KB single chunk to route-level budgets), image
+optimization, query plan review with `EXPLAIN ANALYZE`, cache tuning. Playwright
+e2e across the six critical journeys. Error boundaries, Sentry, structured
+logging. Security review: RLS re-audit, service-role key audit, rate limits,
+upload validation, dependency audit. Then `README.md`, `docs/SCHEMA.md`, a demo
+walkthrough, and the portfolio case study.
+
+**Exit:** [§10 Quality gates](#10-quality-gates) all pass. Deployed. Case study
+live on the portfolio.
+</details>
+
+**Total:** roughly 38–48 sessions. Stages A+B alone (Phases 0–4) already produce
+something honestly demoable — a real, fast, indexable directory — which is a
+sensible first checkpoint if you want to show progress early.
+
+---
+
+## 9. Regression register
+
+Every defect found in the 2026-07-30 audit, mapped to the phase that resolves it.
+Each becomes an explicit verification step at that phase's exit — because a
+rewrite is exactly where known bugs get quietly re-introduced.
+
+### Tier 1 — dead-end user journeys
+
+| #   | Defect                                                                                           | Location                                               | Phase |
+| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----- |
+| 1   | Reviews never render: `getReviews(slug)` filters on `businessId`                                 | `pages/BusinessProfile.tsx:46`                         | 4     |
+| 2   | "View Details" has no handler — search can't reach a listing                                     | `pages/Search.tsx:155`                                 | 3     |
+| 3   | Category browse broken: `?category=` written, `categoryIds` read, then the mount effect nulls it | `pages/Home.tsx:47`, `components/SearchFilters.tsx:37` | 3     |
+| 4   | `ListsManager` fully written, never imported; heart/plus buttons inert                           | `components/ListsManager.tsx`                          | 7     |
+| 5   | Saved items unresolvable: `getBusiness(businessId)` looks up by slug                             | `pages/Account/Lists.tsx:41`                           | 7     |
+| 6   | Review submit hardcoded `disabled`; stars not interactive                                        | `pages/BusinessProfile.tsx:557`, `:711`                | 6     |
+| 7   | 4 of 5 admin sidebar links 404, and use `<a href>` (full reload)                                 | `app/layouts/AdminLayout.tsx:28-46`                    | 9     |
+| 8   | Footer `/about` and `/contact` 404 outside the site layout                                       | `components/Footer.tsx:73,78`                          | 2     |
+
+### Tier 2 — visible fakeness
+
+| #   | Defect                                                                       | Location                            | Phase |
+| --- | ---------------------------------------------------------------------------- | ----------------------------------- | ----- |
+| 9   | 5% random failure injected into every call, including favoriting             | `lib/api.ts:121`                    | 1     |
+| 10  | `sort()` mutates the imported JSON module in place; order leaks session-wide | `lib/api.ts:130,173-185`            | 1     |
+| 11  | "nearest" and "newest" are `Math.random() - 0.5`                             | `lib/api.ts:180-185`                | 1, 3  |
+| 12  | Location and distance filters accepted and ignored                           | `lib/api.ts:91-100`                 | 3     |
+| 13  | Hardcoded `2.5 km` and green `Open now` on every card                        | `pages/Search.tsx:145-150`          | 3     |
+| 14  | No pagination: `total` returned, `page: 1` hardcoded                         | `pages/Search.tsx:41`               | 3     |
+| 15  | Only 5 businesses — too thin to exercise search or a map                     | `data/businesses.json`              | 1     |
+| 16  | Duplicate ids (`owner1`, `admin1` twice, different names) → key collisions   | `data/users.json`                   | 1     |
+| 17  | Owner dashboard KPIs hardcoded (`views: 1250`)                               | `lib/api.ts:329-338`                | 8     |
+| 18  | Completeness score hardcoded, ignores actual listing data                    | `pages/Owner/Dashboard.tsx:77-84`   | 8     |
+| 19  | "most helpful" review sort randomized                                        | `lib/api.ts:234-237`                | 6     |
+| 20  | Owner dashboard blocks admins; `OwnerLayout` allows them                     | `pages/Owner/Dashboard.tsx:40,86`   | 5     |
+| 21  | Contact actions are "Demo only" tooltips over inert buttons                  | `pages/BusinessProfile.tsx:256-283` | 4     |
+
+### Tier 3 — polish, correctness, engineering hygiene
+
+| #   | Defect                                                                             | Location                     | Phase |
+| --- | ---------------------------------------------------------------------------------- | ---------------------------- | ----- |
+| 22  | Only 7 of 22 components use `useLocale` — the second locale is half-applied        | `src/**`                     | 10    |
+| 23  | `<title>Vite + React + TS</title>`, default favicon, no meta/OG                    | `index.html`                 | 0     |
+| 24  | Mobile menu button has no handler — no mobile nav at all                           | `components/Header.tsx:182`  | 2     |
+| 25  | 107 ESLint errors (mostly `any`, unused catch bindings)                            | `src/**`                     | 0     |
+| 26  | Single 644 KB JS chunk, no code splitting                                          | build output                 | 12    |
+| 27  | Zero tests, no CI                                                                  | —                            | 0, 12 |
+| 28  | Auth is a localStorage role picker; `/admin` guarded client-side only              | `store/authSlice.ts`         | 5     |
+| 29  | `useAsync` passes a variable dep array to `useCallback` (lint-suppressed footgun)  | `lib/hooks.ts:50-61`         | 0     |
+| 30  | `useRTL()` string-builds `mr-`/`ml-` class names Tailwind can't statically extract | `lib/hooks.ts:71-87`         | 2     |
+| 31  | `i18n` `t()` returns the key on miss with no dev warning                           | `i18n/index.ts:22`           | 10    |
+| 32  | `signIn(role, userId)` ignores `userId`, resolves from a hardcoded map             | `store/authSlice.ts:59-67`   | 5     |
+| 33  | Store favorites diverge from `users.json` favorites — two sources of truth         | `store/listsSlice.ts`        | 7     |
+| 34  | Native `confirm()` for destructive actions                                         | `pages/Account/Lists.tsx:95` | 2     |
+| 35  | Unsplash photos hotlinked                                                          | `data/businesses.json`       | 1, 8  |
+
+---
+
+## 10. Quality gates
+
+Enforced in CI; a phase isn't done until its gates hold.
+
+| Gate              | Threshold                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lint              | 0 errors, 0 warnings. `no-explicit-any` is an error                                                                                              |
+| Types             | `tsc --noEmit` clean, `strict`                                                                                                                   |
+| RLS tests         | pgTAP suite green; every table has at least one positive and one negative policy test                                                            |
+| Unit tests        | Hours/open-now logic, distance formatting, search param serialization, JSON-LD builders                                                          |
+| E2E               | 6 journeys: guest search → listing · sign up → review · favorite → list · register → approve → live · claim → approve → edit · admin moderate    |
+| Lighthouse        | Home and listing ≥95 across all four categories, mobile                                                                                          |
+| Bundle            | First-load JS ≤180 KB gzip per route; no chunk over 250 KB                                                                                       |
+| a11y              | axe: 0 violations on every route, light + dark, EN + AR                                                                                          |
+| Rich results      | Google Rich Results Test passes for `LocalBusiness` + `AggregateRating`                                                                          |
+| Query performance | `search_businesses` p95 <150ms at 10k rows, verified with `EXPLAIN ANALYZE`                                                                      |
+| i18n              | Every locale typed against the `en` dictionary, so a missing key fails `tsc`; no value left as its English source; every value in its own script |
+| Security          | No service-role key reachable from client bundles; every mutation rate-limited; uploads type- and size-validated                                 |
+
+---
+
+## 11. Out of scope
+
+Booking and reservations · real-time chat between users and businesses · native
+mobile apps · AI features · multi-country · user-to-user messaging · loyalty
+programs · POS or delivery integrations · light-mode-only or dark-mode-only ·
+PWA/offline · white-labeling.
+
+Each is defensible to _discuss_ in an interview. None earns its build cost here.
+
+---
+
+## 12. Open questions
+
+Not blocking — defaults are chosen and noted. Revisit at the phase where each bites.
+
+| Question                                                                               | Default until decided                                                                                                                               | Bites at |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Real Indian businesses or clearly-synthetic seed data?                                 | Synthetic-but-plausible, labelled as demo. Avoids misrepresenting real businesses and their ratings                                                 | 1        |
+| Stripe test mode, or simulated checkout?                                               | Stripe test mode behind a flag; simulated when keys are absent                                                                                      | 11       |
+| Translated content — machine-translated or hand-written?                               | Hand-write categories, cities, and UI strings; machine-translate seed descriptions with a visible note. Half-good translation reads worse than none | 1, 10    |
+| Custom domain for the demo?                                                            | Vercel subdomain initially; a real domain strengthens the case study                                                                                | 12       |
+| Claim verification depth — document upload only, or add a callback/email-domain check? | Document upload + admin review; document the stronger options in the case study                                                                     | 8        |
+| Realtime scope?                                                                        | Admin queues only. Live review counts on public pages are a cost with little payoff                                                                 | 9        |
+
+---
+
+## 13. Portfolio case study
+
+Written in the same problem → approach → outcome shape as your existing two
+entries, added to `src/data/projects.ts` on the portfolio (which auto-generates
+the deck card, case study page, sitemap entry, OG image, and Nova action).
+
+**Problem.** Finding a trustworthy local business means scattered listings,
+stale hours, unverifiable reviews, and no way for an owner to control what's
+published about them. A directory has to serve three parties with conflicting
+interests at once — and be findable by search engines, or it may as well not exist.
+
+**Approach** — four beats:
+
+1. **Authorization in the database, not the app.** Row Level Security as the
+   single enforcement point: owners edit only what they've verifiably claimed,
+   nobody reviews their own business, nobody promotes themselves to admin —
+   proven by a policy test suite in CI.
+2. **Search that answers a real question.** One Postgres function combining
+   weighted full-text ranking, PostGIS radius filtering, and timezone-correct
+   open-now evaluation across split shifts and holiday overrides.
+3. **Trust as a workflow.** Claim verification, review reporting, and a
+   moderation console where every decision is reversible and audited with
+   before/after diffs.
+4. **Multilingual and findable by construction.** Server-rendered listings,
+   JSON-LD rich results, programmatic category × city pages, and a locale
+   registry where adding a language is one entry plus one dictionary — proven by
+   shipping four, including a right-to-left one, with per-script typography.
+
+**Outcome.** A working directory: real accounts, real reviews, real owner
+analytics, real moderation — with database-enforced authorization, sub-150ms
+geospatial search, and hundreds of indexable pages. Deliberately designed away
+from the portfolio's own visual language, because a directory is scanned, not
+admired.
+
+**Also update on the portfolio:** roadmap items 1 (real screenshots), 2 (proof
+links), and 4 (a third case study) all get resolved by this project.
+
+---
+
+## Changelog
+
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-30 | Initial plan. Locked Next.js, Supabase, and the Warm Editorial Directory design direction. Audit of the existing prototype captured as the [regression register](#9-regression-register). Revised the earlier fix-then-migrate sequencing: with a framework migration confirmed, the prototype's defects become verification steps in the rebuild rather than work done twice                                             |
+| 2026-07-30 | **Market pivot: Bahrain → India, with multi-market architecture.** Launch locales `en` + `hi`; `Asia/Kolkata`, INR, `+91`. Market facts moved into a registry and translatable columns to `*_i18n jsonb`, so a new market or language is a data change rather than a migration. `areas` split into `cities` + `localities`. Multi-market moved from "out of scope" to "in scope as architecture, not as launched markets" |
+| 2026-07-30 | Next.js **16.2** rather than 15 — 16 is current stable and starting a greenfield build on the previous major is indefensible. Node bumped to **24 LTS**: Node 20 hit EOL 2026-04-30 and `@supabase/supabase-js` ≥ 2.110 requires Node 22+. `middleware.ts` → `proxy.ts` per the Next 16 convention                                                                                                                        |
+| 2026-07-30 | **Phase 0 complete.** Lint, typecheck, 26 unit tests, build, and 8 e2e tests all green; local Postgres 17.6 up with generated types. Vercel deploy still outstanding                                                                                                                                                                                                                                                      |
+
+---
+
+## Phase log
+
+Running record of what each phase actually produced, including decisions taken
+mid-build that the plan above did not anticipate.
+
+### Phase 0 — Scaffold & tooling
+
+**Decisions taken during the build**
+
+- **Dictionaries are accessed by property, not by string path.** `t('a.b.c')`
+  returning the key on a miss is exactly how the prototype ended up half
+  translated with nobody noticing. Every locale is typed against `en`, so a
+  missing key fails `tsc`. Translation parity is a compile-time guarantee.
+- **RTL infrastructure now, RTL locales in Phase 10.** Logical CSS properties,
+  `dir` on `<html>`, and a direction-aware registry are all in place, but no RTL
+  locale ships until Urdu can get native review — shipping half-good translation
+  would contradict the project's own standard.
+- **`ThemeToggle` holds no React state.** Which icon shows is decided by CSS from
+  the `.dark` class, so there is no effect, no hydration mismatch, and a correct
+  icon on first paint. This also cleared React's `set-state-in-effect` lint rule
+  rather than suppressing it.
+- **One sanctioned exception to the no-raw-hex rule** (`src/lib/brand.ts`), for
+  surfaces that cannot read CSS custom properties: the PWA manifest, the
+  `theme-color` meta tag, and generated OG images.
+- **`npm audit` is not at zero, deliberately.** `postcss` and `sharp` are pinned
+  forward via `overrides`. The remaining advisories are dev-only in the ESLint
+  dependency chain, and force-resolving `minimatch@3` → `10` would break the lint
+  toolchain to fix a dev-time DoS advisory. Revisit in Phase 12.
+
+**Not yet done:** Vercel deployment.

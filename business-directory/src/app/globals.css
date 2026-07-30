@@ -1,0 +1,250 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Dark mode is class-driven so it can be user-controlled, not just OS-driven. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   Design tokens — "Warm Editorial Directory"
+   This block is the ONLY place raw color values may appear. ESLint enforces
+   that with a no-restricted-syntax rule on hex literals in components.
+   Contrast ratios below are measured against the surrounding surface and all
+   meet WCAG 2.1 AA for normal text (>= 4.5:1).
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --paper: #fcfbf8; /* warm paper — page canvas */
+  --surface: #ffffff; /* raised: cards, sheets */
+  --surface-sunken: #f5f3ec; /* recessed: wells, table headers */
+
+  /* Text */
+  --ink: #1a1815; /* 17.1:1 on paper */
+  --ink-muted: #6b665c; /*  5.5:1 on paper */
+
+  /* Lines */
+  --line: #e5e0d5; /* hairline — the primary separator */
+  --line-strong: #d3ccbc; /* input borders, emphasis */
+
+  /* Accent — actions and emphasis only, never a large fill */
+  --accent: #b4541e; /* terracotta — 4.8:1 on paper */
+  --accent-hover: #9c4718;
+  --accent-soft: #fbeee6; /* tinted backdrop for accent contexts */
+  --accent-ink: #ffffff; /* 5.0:1 on accent */
+
+  /* Status. --success is reserved for open-now truth, never decoration. */
+  --success: #2e6f4e; /*  5.8:1 on paper */
+  --success-soft: #e8f2ec;
+  --warning: #a66a00;
+  --warning-soft: #fdf3e0;
+  --danger: #b3261e; /*  6.3:1 on paper */
+  --danger-soft: #fceceb;
+
+  /* Ratings keep one fixed hue across both themes so stars read identically. */
+  --star: #e0a419;
+
+  /* Focus */
+  --ring: #b4541e;
+
+  /* Radii */
+  --radius-control: 0.5rem; /*  8px — buttons, inputs */
+  --radius-card: 0.625rem; /* 10px — cards, sheets */
+  --radius-pill: 62.4375rem; /* pills, chips, avatars */
+
+  /* Elevation — exactly two steps. No stacking. */
+  --shadow-card: 0 1px 2px rgb(26 24 21 / 0.04), 0 1px 3px rgb(26 24 21 / 0.06);
+  --shadow-float: 0 8px 24px -4px rgb(26 24 21 / 0.12), 0 2px 6px rgb(26 24 21 / 0.08);
+}
+
+.dark {
+  --paper: #14130f;
+  --surface: #1c1b17;
+  --surface-sunken: #100f0c;
+
+  --ink: #f4f1ea; /* 16.5:1 on paper */
+  --ink-muted: #a39c8e; /*  6.8:1 on paper */
+
+  --line: #2e2c26;
+  --line-strong: #423f37;
+
+  --accent: #d2703a; /*  5.4:1 on paper */
+  --accent-hover: #e08150;
+  --accent-soft: #33211a;
+  --accent-ink: #17120e; /*  5.4:1 on accent */
+
+  --success: #4e9b74; /*  5.6:1 on paper */
+  --success-soft: #16281f;
+  --warning: #d6a03c;
+  --warning-soft: #2b2113;
+  --danger: #e06055;
+  --danger-soft: #2e1614;
+
+  --star: #e0a419;
+
+  --ring: #d2703a;
+
+  /* Shadows carry less weight on dark surfaces; borders do the work instead. */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-float: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+/* ==========================================================================
+   Token -> utility mapping. `inline` keeps the var() reference in the output,
+   so a single `.dark` class flips every utility without duplicated CSS.
+   ========================================================================== */
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-star: var(--star);
+  --color-ring: var(--ring);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+
+  /* Font stacks, injected by next/font in layout.tsx.
+     One face per script, subset-scoped — a single multi-script file would cost
+     every visitor the weight of scripts they cannot read. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, ui-serif, serif;
+  --font-devanagari: var(--font-noto-devanagari), var(--font-inter), sans-serif;
+
+  /* Motion — one easing, three durations. */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-hover: 120ms;
+  --duration-enter: 200ms;
+  --duration-overlay: 260ms;
+}
+
+/* ==========================================================================
+   Base layer
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    /* Prevents layout shift when scroll-locking overlays open. */
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    /* Numerals must not jitter — ratings and counts sit in dense rows. */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Latin default. Script overrides follow and win on specificity. */
+  :is(h1, h2, h3, h4) {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  /* Devanagari carries matras above and below the headline stroke, so it needs
+     more leading and zero tracking. It has no serif display counterpart here,
+     so headings step up in weight instead of changing family.
+     Each new script adds one block here; nothing else needs to change. */
+  :lang(hi) body {
+    font-family: var(--font-devanagari);
+    line-height: 1.75;
+    letter-spacing: 0;
+  }
+
+  :lang(hi) :is(h1, h2, h3, h4) {
+    font-family: var(--font-devanagari);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  /* RTL scripts (Urdu ships in Phase 10) also take no Latin tracking. */
+  [dir='rtl'] :is(h1, h2, h3, h4) {
+    letter-spacing: 0;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One focus treatment, everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Numbers stay LTR inside RTL text. */
+  [dir='rtl'] .num {
+    direction: ltr;
+    unicode-bidi: embed;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--ink);
+  }
+}
+
+@layer utilities {
+  /* Fluid display sizes. Body text stays locked at 16px by design. */
+  .text-display-lg {
+    font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4.5rem);
+    line-height: 1.04;
+  }
+
+  .text-display {
+    font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+    line-height: 1.1;
+  }
+
+  .text-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+/* Every effect has a reduced-motion fallback. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
