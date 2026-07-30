@@ -961,6 +961,35 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          action: string
+          count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          action: string
+          count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          action?: string
+          count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_limits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_photos: {
         Row: {
           id: string
@@ -1350,6 +1379,35 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       business_is_public: { Args: { target: string }; Returns: boolean }
+      business_reviews: {
+        Args: {
+          p_business_id: string
+          p_limit?: number
+          p_offset?: number
+          p_sort?: string
+        }
+        Returns: {
+          author_avatar: string
+          author_id: string
+          author_name: string
+          body: string
+          created_at: string
+          edited_at: string
+          helpful_count: number
+          id: string
+          photo_paths: string[]
+          rating: number
+          reply_body: string
+          reply_created_at: string
+          total_count: number
+          viewer_is_author: boolean
+          viewer_voted: boolean
+        }[]
+      }
+      consume_rate_limit: {
+        Args: { p_action: string; p_max: number; p_window: string }
+        Returns: boolean
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       delete_own_account: { Args: never; Returns: undefined }
       directory_stats: {
@@ -1436,6 +1494,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      review_eligibility: {
+        Args: { p_business_id: string }
+        Returns: {
+          can_review: boolean
+          existing_review_id: string
+          reason: string
+        }[]
       }
       search_businesses: {
         Args: {

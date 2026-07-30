@@ -321,14 +321,12 @@ select lives_ok(
   'an admin can verify a listing'
 );
 
-select lives_ok(
-  $$ select public.record_audit('test.action', 'business', 'abc', null, null) $$,
-  'an admin can write an audit entry through record_audit()'
-);
-
-select ok(
-  (select count(*) from public.audit_log) > 0,
-  'an admin can read the audit log'
+-- Even an admin must not call record_audit() directly. It is invoked only by
+-- other SECURITY DEFINER routines, which run as the owner and need no grant.
+-- A client that could write here could forge the moderation trail.
+select throws_ok(
+  $$ select public.record_audit('forged.action', 'business', 'abc', null, null) $$,
+  '42501', null, 'not even an admin can write an audit entry directly'
 );
 
 -- Claim approval is atomic: owner assigned, listing verified, claim closed.
@@ -344,6 +342,13 @@ select is(
     where c.status = 'approved' and (b.owner_id is null or not b.verified))::int,
   0,
   'claim approval assigned the owner and verified the listing atomically'
+);
+
+-- The audit entry is readable now, written by approve_claim rather than by a
+-- client — which is the only path that should exist.
+select ok(
+  (select count(*) from public.audit_log where action = 'claim.approve') > 0,
+  'an admin can read an audit entry written by approve_claim()'
 );
 
 select pg_temp.become_postgres();

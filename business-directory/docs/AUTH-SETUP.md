@@ -275,8 +275,8 @@ Beyond the three above, these are needed once and are easy to forget.
       Configuration.
 - [ ] Add to **Redirect URLs**:
       `     https://yourdomain.com/**
-    https://<preview-deployments>.vercel.app/**
-    `
+  https://<preview-deployments>.vercel.app/**
+  `
       Missing these is the second most common OAuth failure after the Google
       callback URI. Supabase refuses to redirect anywhere unlisted, which is
       correct and unhelpful-looking.

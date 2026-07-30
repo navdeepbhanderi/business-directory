@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phase 5 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 6 in progress (data layer done) · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -774,16 +774,48 @@ start`; `db reset` does not reload them. Now asserted after editing.
 </details>
 
 <details open>
-<summary><b>Phase 6 · Reviews</b> — 3–4 sessions</summary>
+<summary><b>Phase 6 · Reviews</b> — 🚧 <b>data layer complete, interface remaining</b></summary>
 
-Composer with interactive rating and photo upload. Edit window. One-per-business
-enforcement surfaced kindly in the UI. Helpful votes and a real most-helpful
-sort. Owner replies. Reporting. Rate limiting. Guest draft preservation across
-sign-in. Rating/count triggers verified live.
+**Done:** review photo storage (path-scoped like avatars), database-backed rate
+limiting, a `business_reviews` RPC that sorts by helpfulness _in SQL_, and
+`review_eligibility` so the UI can explain a refusal instead of disabling a
+button. 19 new pgTAP assertions; 87 in total.
 
-**Exit:** a real review round-trips: submit → appears → business rating updates
-→ owner replies → another user votes helpful → sort order changes → a third
-user reports it → it lands in the moderation queue.
+**Remaining:** the interface — composer with photo upload, the 24-hour edit
+window, vote and report controls, owner replies, and guest draft preservation
+across sign-in. Plus the e2e round trip that is this phase's exit criterion.
+
+**Three real defects found, two of them security**
+
+1. **`record_audit()` and `consume_rate_limit()` were callable by any signed-in
+   user.** Postgres grants EXECUTE to PUBLIC on every new function, and revoking
+   from `anon, authenticated` — which the earlier migrations did — does not remove
+   it. Neither function checks its caller, so a user could have forged entries in
+   the audit trail the admin console and the case study both rest on, or reset
+   their own rate-limit counter by passing a zero-length window.
+2. **Posting a review as a signed-in user failed outright.** The rating trigger
+   updates `businesses.rating`, and the Phase 1 column guard rejected it. The
+   guard exempted callers with no JWT, which covered seeding — but a trigger
+   firing inside a user's request still carries that user's JWT, so the guard
+   blocked its own maintenance trigger. **The entire review feature would have
+   been non-functional.**
+3. **My first fix for (2) made things worse**, and the tests caught that too. It
+   gated on `current_user` inside a SECURITY DEFINER function, where
+   `current_user` is always the owner — so the guard matched everyone and briefly
+   let a user set their own role and an owner verify their own listing. The guards
+   are now SECURITY INVOKER, where `current_user` is genuinely the caller's role.
+
+**Why none of these surfaced earlier:** the seed runs without a JWT, and every
+review-insert assertion in the Phase 1 suite was a _rejection_ test — so the
+rating trigger never once fired on a successful authenticated insert. A suite
+made entirely of "this is refused" tests can be completely green while the
+success path is broken.
+
+There is now a generic guard: a test that enumerates every SECURITY DEFINER
+function and fails if any carries a PUBLIC execute grant, with an explicit
+allowlist for the read-only helpers. That closes the class rather than the three
+instances.
+
 </details>
 
 <details open>
@@ -1036,6 +1068,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 3 complete.** Full facet surface, geolocation radius, clustered MapLibre map with list↔map hover sync, streamed results. Switched public reads to a cookie-free anon client, which restored static rendering _and_ made it structurally impossible for those queries to return unpublished data                                                                                                                   |
 | 2026-07-30 | **Phase 4 complete.** 200 statically generated listing pages with 1h ISR, full JSON-LD graph, per-listing OG cards, database-driven sitemap, photo lightbox, listing map, nearby listings. Lighthouse measured and then fixed to 95/100/100/100                                                                                                                                                                           |
 | 2026-07-30 | **Phase 5 complete.** Supabase Auth with SSR cookie sessions, email confirmation, password reset, OTP, Google OAuth, avatar storage, account settings and deletion. Caught and reverted a header change that had silently turned all 200 prerendered listing pages dynamic                                                                                                                                                |
+| 2026-07-30 | **Phase 6 data layer.** Review photo storage, database-backed rate limiting, SQL-side helpful sort, eligibility RPC. Found that `record_audit` and `consume_rate_limit` were callable by any signed-in user, and that posting a review as a signed-in user failed outright because the column guard blocked its own rating trigger. Interface still to come                                                               |
 
 ---
 
@@ -1216,3 +1249,26 @@ target and is not a detail to discover later.
   out with an `<img src>`.
 - **Guests are Postgres `anon`, not a stored role**, as the schema already
   decided in Phase 1 — so there is no "continue as guest" state to build.
+
+### Phase 6 (part 1) — Review data layer
+
+**Decisions taken during the build**
+
+- **Rate limiting lives in the database, enforced by a trigger.** The prototype's
+  limiter was a per-process sliding window, which on serverless means one bucket
+  per instance and therefore no limit at all. A trigger also means the limit
+  applies to every path into the table, including a direct PostgREST call with a
+  stolen anon key — an application-level check is advisory.
+- **`rate_limits` has RLS enabled and no policies at all.** A client that could
+  read or update its own counter could lift its own limit.
+- **"Most helpful" is counted in SQL.** Sorting a fetched page in the application
+  sorts only that page, so the most helpful review on page three never reaches
+  page one — the sort looked implemented and meant nothing.
+- **`review_eligibility` returns a reason, not a boolean.** The UI can then say
+  _why_ someone cannot review — signed out, suspended, owns the listing, already
+  reviewed — instead of disabling a button with no explanation, which is what the
+  prototype did.
+- **Guards are SECURITY INVOKER, on purpose.** They need no privilege of their
+  own, and as INVOKER `current_user` reveals whether the statement came from a
+  client or from one of our own SECURITY DEFINER routines. As DEFINER that
+  distinction is invisible.
