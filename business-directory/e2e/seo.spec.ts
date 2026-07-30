@@ -174,6 +174,48 @@ test.describe('listing content', () => {
     await expect(page.getByText('Demo only')).toHaveCount(0)
   })
 
+  /**
+   * The gallery collapsed to a ~10px strip at desktop widths once the images
+   * moved to `next/image fill`: both columns carried `aspect-auto` above 640px
+   * and fill images are absolutely positioned, so nothing gave the grid height.
+   *
+   * It shipped because the only gallery test opened the lightbox — which passes
+   * perfectly well on a zero-height gallery — and because Lighthouse emulates a
+   * 412px viewport, below the breakpoint where it breaks. Hence: assert measured
+   * geometry, at more than one width.
+   */
+  test.describe('gallery geometry', () => {
+    for (const { label, width, height } of [
+      { label: 'mobile', width: 390, height: 844 },
+      { label: 'tablet', width: 768, height: 1024 },
+      { label: 'desktop', width: 1440, height: 900 },
+    ]) {
+      test(`the gallery has real height on ${label}`, async ({ page }) => {
+        await page.setViewportSize({ width, height })
+        await page.goto(LISTING)
+
+        const lead = page.getByRole('button', { name: /View photo$/ }).first()
+        await expect(lead).toBeVisible()
+
+        const box = await lead.boundingBox()
+        expect(box, 'lead photo has no box at all').toBeTruthy()
+        // A collapsed grid measured ~10px. Anything under 150 is broken.
+        expect(box?.height ?? 0, `lead photo height on ${label}`).toBeGreaterThan(150)
+        expect(box?.width ?? 0).toBeGreaterThan(150)
+
+        // The image must actually paint, not just occupy space.
+        const painted = await page
+          .locator('img')
+          .first()
+          .evaluate((node) => {
+            const img = node as HTMLImageElement
+            return img.complete && img.naturalWidth > 0
+          })
+        expect(painted, `lead image did not load on ${label}`).toBe(true)
+      })
+    }
+  })
+
   test('the gallery opens a lightbox and closes on Escape', async ({ page }) => {
     await page.goto(LISTING)
     await page

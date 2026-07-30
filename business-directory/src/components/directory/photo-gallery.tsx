@@ -58,12 +58,17 @@ export function PhotoGallery({
 
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+      {/* An explicit height at sm+ is load-bearing. Both children carry
+          `aspect-auto` there, and every `next/image fill` is absolutely
+          positioned and so contributes no height — without this the whole grid
+          collapses to a few pixels. It only broke above 640px, which is why
+          mobile-emulated Lighthouse never caught it. */}
+      <div className="grid gap-2 sm:h-[22rem] sm:grid-cols-[2fr_1fr] lg:h-[26rem]">
         {lead && (
           <button
             type="button"
             onClick={() => setOpenIndex(0)}
-            className="group rounded-card border-line bg-surface-sunken relative aspect-[4/3] overflow-hidden border sm:aspect-auto"
+            className="group rounded-card border-line bg-surface-sunken relative aspect-[4/3] overflow-hidden border sm:aspect-auto sm:h-full"
             aria-label={labels.open}
           >
             <Image
@@ -82,14 +87,17 @@ export function PhotoGallery({
           </button>
         )}
 
+        {/* `auto-rows-fr` rather than a fixed row count: listings have between
+            one and three thumbnails, and hardcoding three left dead space under
+            the last one. */}
         {rest.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-1">
+          <div className="grid grid-cols-3 gap-2 sm:h-full sm:auto-rows-fr sm:grid-cols-1">
             {rest.slice(0, 3).map((photo, index) => (
               <button
                 key={photo.url}
                 type="button"
                 onClick={() => setOpenIndex(index + 1)}
-                className="rounded-card border-line bg-surface-sunken relative aspect-[4/3] overflow-hidden border sm:aspect-auto"
+                className="rounded-card border-line bg-surface-sunken relative aspect-[4/3] overflow-hidden border sm:aspect-auto sm:h-full"
                 aria-label={`${labels.open} ${index + 2}`}
               >
                 <Image
