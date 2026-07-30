@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phase 4 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 5 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -722,16 +722,55 @@ alongside the other performance work.
 ### Stage C — The product people use
 
 <details open>
-<summary><b>Phase 5 · Auth &amp; accounts</b> — 3–4 sessions</summary>
+<summary><b>Phase 5 · Auth &amp; accounts</b> — ✅ <b>complete</b></summary>
 
-Supabase Auth with `@supabase/ssr` cookie sessions. Email + password, Google
-OAuth, phone OTP. Verification, password reset, profile with avatar upload.
-Middleware route protection; server-side guards on every private page. Profile
-trigger on signup. Account settings, notification preferences, deletion.
+Supabase Auth on `@supabase/ssr` cookie sessions, email + password with
+confirmation, password reset, phone OTP, Google OAuth, avatar upload to a
+path-scoped Storage bucket, account settings, and self-service deletion.
 
-**Exit:** sign up → verify → sign in → OAuth → OTP all work. Hitting
-`/admin` as a normal user is blocked _server-side_, and blocked again by RLS
-if the guard were removed. Sessions survive refresh with no hydration flash.
+**Three independent authorization layers**, innermost first:
+RLS in the database → `requireUser`/`requireRole` in the page → a coarse
+redirect in `proxy.ts`. Deleting the outer two changes the error message a user
+sees, not what they can reach.
+
+**Delivered against exit criteria**
+
+| Gate                                           | Result                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| Sign up → verify → sign in                     | ✅ e2e reads the real confirmation link from Mailpit         |
+| OAuth                                          | ⚠️ wired end to end; unverifiable without Google credentials |
+| Phone OTP                                      | ⚠️ wired end to end; needs an SMS provider, fails honestly   |
+| `/admin` blocked server-side for a normal user | ✅ proxy redirect + page guard + RLS                         |
+| Sessions survive refresh, no hydration flash   | ✅ refreshed in the proxy, where cookies are writable        |
+| `npm run verify`                               | ✅ lint, typecheck, 121 unit tests, build                    |
+| `npm run test:e2e`                             | ✅ 66 tests                                                  |
+
+**The serious mistake this phase made, and caught**
+
+Adding `getSessionUser()` to the shared site header **silently turned all 200
+prerendered listing pages dynamic**. Reading cookies anywhere in a layout opts
+every page beneath it out of static rendering — so a one-line convenience
+destroyed the entire result of Phase 4 and the SEO argument the project rests on.
+
+Enabling `cacheComponents` (Next 16's partial prerendering) is the correct fix
+and would give both a static shell and a personalised chip, but it replaces
+route-segment `revalidate` with `'use cache'` across the data layer and is
+experimental — not a change to rush at the end of a phase. So the header is
+session-free and links unconditionally to `/account`, which redirects when there
+is no session. That costs a greeting in the header and keeps 200 static pages.
+`cacheComponents` is recorded as Phase 12 work.
+
+**Two further mistakes worth recording**
+
+1. A `config.toml` edit reported success while matching nothing, so email
+   confirmation was never actually enabled — and the e2e suite "passed" signup
+   against auto-confirmed accounts. Config changes also need `supabase stop &&
+start`; `db reset` does not reload them. Now asserted after editing.
+2. The first open-redirect test proved nothing: it used _failed_ credentials, and
+   a failed sign-in never redirects. `safeReturnTo` moved out of `server-only`
+   into its own module with 6 unit tests, and the e2e now asserts the
+   consequence after a successful sign-in.
+
 </details>
 
 <details open>
@@ -996,6 +1035,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 2 complete.** Named the product **Openly**; replaced the warm-cream/terracotta palette with indigo + marigold after it was correctly called out as looking like a default rather than a decision. 12 primitives, 9 directory components, app shell, `/design` style guide, `docs/DESIGN.md`. Brought the listing and search pages forward so no card is a dead end                                                |
 | 2026-07-30 | **Phase 3 complete.** Full facet surface, geolocation radius, clustered MapLibre map with list↔map hover sync, streamed results. Switched public reads to a cookie-free anon client, which restored static rendering _and_ made it structurally impossible for those queries to return unpublished data                                                                                                                   |
 | 2026-07-30 | **Phase 4 complete.** 200 statically generated listing pages with 1h ISR, full JSON-LD graph, per-listing OG cards, database-driven sitemap, photo lightbox, listing map, nearby listings. Lighthouse measured and then fixed to 95/100/100/100                                                                                                                                                                           |
+| 2026-07-30 | **Phase 5 complete.** Supabase Auth with SSR cookie sessions, email confirmation, password reset, OTP, Google OAuth, avatar storage, account settings and deletion. Caught and reverted a header change that had silently turned all 200 prerendered listing pages dynamic                                                                                                                                                |
 
 ---
 
@@ -1150,3 +1190,29 @@ target and is not a detail to discover later.
   renamed from "Similar nearby" to "Nearby" so the label stays honest.
 - **`dynamicParams` stays on**, so a listing published after the last build
   renders on demand and caches rather than 404ing until the next deploy.
+
+### Phase 5 — Auth and accounts
+
+**Decisions taken during the build**
+
+- **`getUser()`, never `getSession()`.** `getSession` decodes the cookie and
+  trusts it; `getUser` validates the token against the auth server. Every
+  authorization decision here uses the second, because a forged cookie satisfies
+  the first.
+- **Session refresh lives in `proxy.ts` and nowhere else.** Tokens expire hourly
+  and a Server Component cannot set cookies, so refreshing during render computes
+  a new token and discards it — signing users out an hour after they sign in.
+- **One error message for every sign-in failure.** Distinguishing "no such
+  account" from "wrong password" turns the form into an account-existence oracle.
+  Password reset always reports success for the same reason. Signup is the
+  deliberate exception: silence there leaves someone stuck with no way to see why.
+- **Avatar paths are scoped by uid in the storage policy**, so a crafted filename
+  cannot write into another user's folder. Type and size are checked in the action
+  for a useful message and again by the bucket, which is what enforces them.
+- **Deleting an account unclaims owned listings rather than deleting them.**
+  Other people's reviews are attached to those businesses, and a business is not
+  personal data — so it returns to the moderation queue unclaimed.
+- **Sign-out is a form, not a link.** A GET link would let any page log a visitor
+  out with an `<img src>`.
+- **Guests are Postgres `anon`, not a stored role**, as the schema already
+  decided in Phase 1 — so there is no "continue as guest" state to build.

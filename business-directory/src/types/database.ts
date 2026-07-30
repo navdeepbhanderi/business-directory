@@ -1351,6 +1351,7 @@ export type Database = {
       }
       business_is_public: { Args: { target: string }; Returns: boolean }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      delete_own_account: { Args: never; Returns: undefined }
       directory_stats: {
         Args: never
         Returns: {

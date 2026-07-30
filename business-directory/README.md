@@ -9,10 +9,10 @@ Built on Next.js 16 and Supabase, with authorization enforced in the database
 rather than the app, geospatial + full-text search in a single Postgres
 function, and a locale registry designed for India's many languages.
 
-> **Status: Phase 4 complete.** Database, design system, faceted discovery, and
-> statically generated listing pages with full structured data are in place —
-> Lighthouse 95/100/100/100 on a listing. Auth, reviews, and owner tools are
-> next. The roadmap lives in **[PLAN.md](./PLAN.md)**.
+> **Status: Phase 5 complete.** Database, design system, faceted discovery,
+> statically generated listing pages (Lighthouse 95/100/100/100), and
+> authentication with accounts. Reviews, lists, and owner tools are next. The
+> roadmap lives in **[PLAN.md](./PLAN.md)**.
 
 ---
 

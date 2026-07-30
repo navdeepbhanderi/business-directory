@@ -45,3 +45,18 @@ export const mapColors = {
   /** Cluster count label. */
   clusterText: '#ffffff',
 } as const
+
+/**
+ * Third-party brand marks.
+ *
+ * These are not ours to tokenise. Google's sign-in button guidelines require the
+ * mark be reproduced in its own colours, so recolouring it to fit our palette
+ * would be both a brand violation and a recognisability loss — the point of the
+ * glyph is that people spot it instantly.
+ */
+export const vendorColors = {
+  googleBlue: '#4285F4',
+  googleGreen: '#34A853',
+  googleYellow: '#FBBC05',
+  googleRed: '#EA4335',
+} as const

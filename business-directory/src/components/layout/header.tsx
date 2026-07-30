@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { Search } from 'lucide-react'
+import { Search, User } from 'lucide-react'
 import { localeMeta, locales, type Locale } from '@/i18n/config'
 import type { Dictionary } from '@/i18n/dictionaries/en'
+import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { MobileNav } from '@/components/layout/mobile-nav'
 import { LocaleSwitcher } from '@/components/layout/locale-switcher'
@@ -14,6 +15,25 @@ import { LocaleSwitcher } from '@/components/layout/locale-switcher'
  * than linked to a 404; they appear in the phase that builds them. An e2e test
  * crawls the shell and fails on any dead link, because four of five nav links
  * 404'ing is precisely what the rebuild is correcting.
+ */
+/**
+ * Site header.
+ *
+ * Deliberately does NOT read the session. Reading cookies anywhere in a layout
+ * opts every page beneath it out of static rendering — when this header called
+ * `getSessionUser()`, all 200 prerendered listing pages silently became dynamic,
+ * forfeiting the caching and indexability the whole project is built around.
+ *
+ * So the account entry point is unconditional: it always links to `/account`,
+ * which redirects to sign-in when there is no session. That is strictly better
+ * than a client-side session check, which would flash a signed-out state on
+ * every page load, and it costs only the ability to greet someone by name in the
+ * header — which the account page does anyway.
+ *
+ * Rendering both a static shell and a personalised chip needs partial
+ * prerendering (`cacheComponents` in Next 16). That is the right end state and is
+ * recorded as follow-up work; it replaces route-segment `revalidate` with
+ * `'use cache'` across the data layer, which is not a change to rush.
  */
 export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const base = `/${locale}`
@@ -94,6 +114,13 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
             />
           )}
           <ThemeToggle label={dict.nav.toggleTheme} />
+
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/${locale}/account`}>
+              <User />
+              <span className="hidden sm:inline">{dict.account.title}</span>
+            </Link>
+          </Button>
         </div>
       </div>
     </header>
