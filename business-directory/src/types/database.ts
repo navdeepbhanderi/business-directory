@@ -1345,6 +1345,15 @@ export type Database = {
       }
       business_is_public: { Args: { target: string }; Returns: boolean }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      directory_stats: {
+        Args: never
+        Returns: {
+          category_count: number
+          city_count: number
+          listing_count: number
+          review_count: number
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_open_at: {
         Args: { p_at?: string; p_business_id: string }
@@ -1418,6 +1427,7 @@ export type Database = {
           longitude: number
           name: string
           name_i18n: Json
+          photo_url: string
           price_level: number
           promoted: boolean
           rating: number

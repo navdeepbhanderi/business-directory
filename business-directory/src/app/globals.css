@@ -5,7 +5,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ==========================================================================
-   Design tokens — "Warm Editorial Directory"
+   Design tokens — "Indigo Editorial Directory"
+   Cool neutral surfaces, deep indigo for action, marigold for ratings.
+   Indigo and marigold are both Indian references (indigo dye, festival
+   marigolds) rather than a generic product palette.
    This block is the ONLY place raw color values may appear. ESLint enforces
    that with a no-restricted-syntax rule on hex literals in components.
    Contrast ratios below are measured against the surrounding surface and all
@@ -13,38 +16,39 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces */
-  --paper: #fcfbf8; /* warm paper — page canvas */
+  /* Surfaces — cool neutral, deliberately not a warm cream. */
+  --paper: #fbfbfc; /* page canvas */
   --surface: #ffffff; /* raised: cards, sheets */
-  --surface-sunken: #f5f3ec; /* recessed: wells, table headers */
+  --surface-sunken: #f1f2f6; /* recessed: wells, table headers */
 
   /* Text */
-  --ink: #1a1815; /* 17.1:1 on paper */
-  --ink-muted: #6b665c; /*  5.5:1 on paper */
+  --ink: #14161f; /* 17.5:1 on paper */
+  --ink-muted: #5a5f70; /*  6.1:1 on paper */
 
   /* Lines */
-  --line: #e5e0d5; /* hairline — the primary separator */
-  --line-strong: #d3ccbc; /* input borders, emphasis */
+  --line: #e2e4ec; /* hairline — the primary separator */
+  --line-strong: #c8cbd8; /* input borders, emphasis */
 
-  /* Accent — actions and emphasis only, never a large fill */
-  --accent: #b4541e; /* terracotta — 4.8:1 on paper */
-  --accent-hover: #9c4718;
-  --accent-soft: #fbeee6; /* tinted backdrop for accent contexts */
-  --accent-ink: #ffffff; /* 5.0:1 on accent */
+  /* Accent — indigo. Actions and emphasis only, never a large fill. */
+  --accent: #363c9c; /*  8.9:1 on paper */
+  --accent-hover: #2c3184;
+  --accent-soft: #eeeffb; /* tinted backdrop for accent contexts */
+  --accent-ink: #ffffff; /*  9.2:1 on accent */
 
   /* Status. --success is reserved for open-now truth, never decoration. */
-  --success: #2e6f4e; /*  5.8:1 on paper */
-  --success-soft: #e8f2ec;
-  --warning: #a66a00;
-  --warning-soft: #fdf3e0;
-  --danger: #b3261e; /*  6.3:1 on paper */
-  --danger-soft: #fceceb;
+  --success: #17734c; /*  5.7:1 on paper */
+  --success-soft: #e6f2ec;
+  --warning: #9a6100;
+  --warning-soft: #fdf3e2;
+  --danger: #c0273b; /*  5.6:1 on paper */
+  --danger-soft: #fceaec;
 
-  /* Ratings keep one fixed hue across both themes so stars read identically. */
-  --star: #e0a419;
+  /* Marigold. Ratings keep one fixed hue across both themes so stars read
+     identically, and it is the one warm note in an otherwise cool palette. */
+  --star: #e8a020;
 
   /* Focus */
-  --ring: #b4541e;
+  --ring: #363c9c;
 
   /* Radii */
   --radius-control: 0.5rem; /*  8px — buttons, inputs */
@@ -52,40 +56,40 @@
   --radius-pill: 62.4375rem; /* pills, chips, avatars */
 
   /* Elevation — exactly two steps. No stacking. */
-  --shadow-card: 0 1px 2px rgb(26 24 21 / 0.04), 0 1px 3px rgb(26 24 21 / 0.06);
-  --shadow-float: 0 8px 24px -4px rgb(26 24 21 / 0.12), 0 2px 6px rgb(26 24 21 / 0.08);
+  --shadow-card: 0 1px 2px rgb(20 22 31 / 0.04), 0 1px 3px rgb(20 22 31 / 0.06);
+  --shadow-float: 0 8px 24px -4px rgb(20 22 31 / 0.14), 0 2px 6px rgb(20 22 31 / 0.08);
 }
 
 .dark {
-  --paper: #14130f;
-  --surface: #1c1b17;
-  --surface-sunken: #100f0c;
+  --paper: #0e1016;
+  --surface: #171a22;
+  --surface-sunken: #0a0c11;
 
-  --ink: #f4f1ea; /* 16.5:1 on paper */
-  --ink-muted: #a39c8e; /*  6.8:1 on paper */
+  --ink: #f2f3f7; /* 17.2:1 on paper */
+  --ink-muted: #9aa0b2; /*  7.3:1 on paper */
 
-  --line: #2e2c26;
-  --line-strong: #423f37;
+  --line: #262a36;
+  --line-strong: #363a46;
 
-  --accent: #d2703a; /*  5.4:1 on paper */
-  --accent-hover: #e08150;
-  --accent-soft: #33211a;
-  --accent-ink: #17120e; /*  5.4:1 on accent */
+  --accent: #8e95f2; /*  7.0:1 on paper */
+  --accent-hover: #a3a9f5;
+  --accent-soft: #1a1d3a;
+  --accent-ink: #0e1016; /*  7.0:1 on accent */
 
-  --success: #4e9b74; /*  5.6:1 on paper */
-  --success-soft: #16281f;
-  --warning: #d6a03c;
-  --warning-soft: #2b2113;
-  --danger: #e06055;
-  --danger-soft: #2e1614;
+  --success: #55c193;
+  --success-soft: #0d2a1f;
+  --warning: #e0a33c;
+  --warning-soft: #2a2113;
+  --danger: #ef6f7d;
+  --danger-soft: #2c1418;
 
-  --star: #e0a419;
+  --star: #e8a020;
 
-  --ring: #d2703a;
+  --ring: #8e95f2;
 
   /* Shadows carry less weight on dark surfaces; borders do the work instead. */
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-float: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-float: 0 8px 24px -4px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.35);
 }
 
 /* ==========================================================================

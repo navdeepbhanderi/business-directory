@@ -24,7 +24,8 @@ test.describe('scaffold', () => {
 
   test('language switcher moves between locales', async ({ page }) => {
     await page.goto('/en')
-    await page.getByRole('link', { name: 'हिन्दी' }).click()
+    await page.getByRole('button', { name: 'Switch language' }).click()
+    await page.getByRole('menuitem', { name: 'हिन्दी' }).click()
     await expect(page).toHaveURL(/\/hi$/)
   })
 

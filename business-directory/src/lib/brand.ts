@@ -14,11 +14,13 @@
  */
 export const brandColors = {
   /** `--paper`, light theme. */
-  paper: '#fcfbf8',
+  paper: '#fbfbfc',
   /** `--paper`, dark theme. */
-  paperDark: '#14130f',
+  paperDark: '#0e1016',
   /** `--ink`, light theme. */
-  ink: '#1a1815',
-  /** `--accent`, light theme — the brand terracotta. */
-  accent: '#b4541e',
+  ink: '#14161f',
+  /** `--accent`, light theme — the brand indigo. */
+  accent: '#363c9c',
+  /** `--star` — marigold, identical in both themes. */
+  star: '#e8a020',
 } as const

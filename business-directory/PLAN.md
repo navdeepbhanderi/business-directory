@@ -1,6 +1,6 @@
-# India Business Directory — Build Plan
+# Openly — Build Plan
 
-**Status:** Phase 1 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 2 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -578,16 +578,44 @@ Deterministic via `setseed()`.
 </details>
 
 <details open>
-<summary><b>Phase 2 · Design system</b> — 3–4 sessions</summary>
+<summary><b>Phase 2 · Design system</b> — ✅ <b>complete</b></summary>
 
-`globals.css` tokens, light and dark. Fonts per script. shadcn primitives
-retokenized. The `components/directory/*` inventory built against seed data.
-App shell: header with search, mobile nav that works, footer with no dead links.
-`docs/DESIGN.md` extracted and expanded. A `/design` route as a living style
-guide (dev-only).
+Named the product **Openly** — "open hours, honest reviews" — which makes the
+open-now badge the signature element rather than a detail.
 
-**Exit:** style guide renders every component in light, dark, LTR, and RTL.
-Zero raw hex outside `globals.css`. Mobile nav functional.
+Token layer, 12 Radix-backed primitives, 9 directory components, the app shell,
+`/design` living style guide, and `docs/DESIGN.md`. Also, because a card that
+cannot open its listing is regression #2 all over again, this phase brought
+forward the **listing detail page** and a **working search page** from Phases 3–4
+— data and layout only; the SEO layer stays in Phase 4 where it belongs.
+
+**Delivered against exit criteria**
+
+| Gate                                | Result                                                      |
+| ----------------------------------- | ----------------------------------------------------------- |
+| Style guide renders every component | ✅ `/design`, dev-only, light + dark + forced-RTL block     |
+| Zero raw hex outside `globals.css`  | ✅ lint-enforced; one documented exception (`lib/brand.ts`) |
+| Mobile nav functional               | ✅ opens, navigates, closes — e2e asserted                  |
+| `npm run verify`                    | ✅ lint, typecheck, 47 unit tests, build                    |
+| `npm run test:e2e`                  | ✅ 20 tests incl. a dead-link crawl of the whole shell      |
+| Contrast                            | ✅ every pair AA, ratios recorded inline                    |
+
+**Three defects this phase caught in its own work**
+
+1. **`RatingBreakdown` was a client component by accident** — it shared a file
+   with the stateful `RatingInput`, so `'use client'` applied to both, and a
+   Server Component passing it a label callback crashed at runtime. Function
+   props cannot cross that boundary. Fixed structurally: stateful components get
+   their own module, and label props are now template strings that the component
+   interpolates itself.
+2. **PostGREST could not disambiguate the `profiles` embed on `reviews`** —
+   `review_votes` also joins the two, so an explicit FK hint was required. Only
+   surfaced at runtime; the types were happy.
+3. **Playwright's `reuseExistingServer` produced three separate false failures.**
+   A server left running from an earlier build kept serving stale client chunks,
+   so hydration never completed and every interactive test failed for reasons
+   unrelated to the code. Now always starts its own server.
+
 </details>
 
 ### Stage B — The product people see
@@ -891,7 +919,8 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Market pivot: Bahrain → India, with multi-market architecture.** Launch locales `en` + `hi`; `Asia/Kolkata`, INR, `+91`. Market facts moved into a registry and translatable columns to `*_i18n jsonb`, so a new market or language is a data change rather than a migration. `areas` split into `cities` + `localities`. Multi-market moved from "out of scope" to "in scope as architecture, not as launched markets" |
 | 2026-07-30 | Next.js **16.2** rather than 15 — 16 is current stable and starting a greenfield build on the previous major is indefensible. Node bumped to **24 LTS**: Node 20 hit EOL 2026-04-30 and `@supabase/supabase-js` ≥ 2.110 requires Node 22+. `middleware.ts` → `proxy.ts` per the Next 16 convention                                                                                                                        |
 | 2026-07-30 | **Phase 0 complete.** Lint, typecheck, 26 unit tests, build, and 8 e2e tests all green; local Postgres 17.6 up with generated types. Vercel deploy still outstanding                                                                                                                                                                                                                                                      |
-| 2026-07-30 | **Phase 1 complete.** 30 tables, RLS everywhere, `search_businesses` and `is_open_at`, 68 pgTAP assertions, and a 120-listing India seed. Two self-inflicted defects caught by the suite: missing DML grants left every policy unreachable, and identical seeded `created_at` values made two test fixtures the same person |
+| 2026-07-30 | **Phase 1 complete.** 30 tables, RLS everywhere, `search_businesses` and `is_open_at`, 68 pgTAP assertions, and a 120-listing India seed. Two self-inflicted defects caught by the suite: missing DML grants left every policy unreachable, and identical seeded `created_at` values made two test fixtures the same person                                                                                               |
+| 2026-07-30 | **Phase 2 complete.** Named the product **Openly**; replaced the warm-cream/terracotta palette with indigo + marigold after it was correctly called out as looking like a default rather than a decision. 12 primitives, 9 directory components, app shell, `/design` style guide, `docs/DESIGN.md`. Brought the listing and search pages forward so no card is a dead end                                                |
 
 ---
 
@@ -957,3 +986,33 @@ mid-build that the plan above did not anticipate.
 
 **Deferred:** the p95 <150ms search benchmark. At 100 seeded rows the number
 would be meaningless; it belongs with the 10k-row load in Phase 12.
+
+### Phase 2 — Design system
+
+**Decisions taken during the build**
+
+- **Radix for behaviour, our own styling.** Not the shadcn CLI: it generates
+  components against its own token names (`--background`, `--primary`), which
+  would have fought the semantic tokens from Phase 0. Radix supplies focus
+  traps, scroll locking, and ARIA wiring — the parts that are easy to get subtly
+  wrong — and the look stays entirely ours.
+- **Props are strings, never callbacks.** Learned the hard way (see defect 1
+  above). Labels needing interpolation take a `{placeholder}` template.
+- **Presentational components are not client components.** Only `RatingInput`,
+  `MobileNav`, `LocaleSwitcher`, and `ThemeToggle` carry `'use client'`.
+- **`ThemeToggle` holds no state at all** — CSS decides which icon shows from
+  the `.dark` class, so the icon is correct on first paint.
+- **The shell links only to pages that exist.** Pricing and sign-in are absent
+  rather than pointing at a 404; they appear in the phases that build them. An
+  e2e test crawls every header and footer link and fails on any dead one.
+- **Client-side hours logic mirrors the SQL.** `lib/hours.ts` duplicates
+  `is_open_at()` so a card can show a live state without a round trip, and its
+  20 unit tests mirror the pgTAP cases exactly. If the two ever disagree, a card
+  will claim "Open" for a listing search has already filtered out.
+- **A photo was added to the search RPC.** Result cards reserve the space
+  regardless, and an empty frame reads as a broken listing rather than a choice.
+
+**Noted for Phase 3/4:** public pages currently render dynamically because the
+cookie-bound Supabase client forces it. Pages that only read published data
+should use an anon client so ISR applies. That directly affects the Phase 4 SSG
+target and is not a detail to discover later.

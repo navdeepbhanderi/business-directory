@@ -25,6 +25,13 @@ function flatten(value: unknown, path: string[] = []): Leaf[] {
 /** Every non-English locale, with the script its values must be written in. */
 const translated = [{ code: 'hi', dict: hi, script: /[ऀ-ॿ]/ }] as const
 
+/**
+ * Keys holding the brand name. These are intentionally identical in every
+ * locale and intentionally not in the local script — "Openly" is a proper noun,
+ * and transliterating a brand per language is worse than leaving it.
+ */
+const brandKeys = new Set(['meta.title'])
+
 const enLeaves = flatten(en)
 
 describe('dictionary parity', () => {
@@ -46,11 +53,9 @@ describe('dictionary parity', () => {
   it.each(translated.map((t) => t.code))('%s has no value left as its English source', (code) => {
     const entry = translated.find((t) => t.code === code)!
     const byPath = new Map(enLeaves.map((l) => [l.path, l.value]))
-    // Proper nouns and brand names may legitimately match; none exist yet.
-    const allowed = new Set<string>()
 
     const untranslated = flatten(entry.dict)
-      .filter((l) => !allowed.has(l.path) && byPath.get(l.path) === l.value)
+      .filter((l) => !brandKeys.has(l.path) && byPath.get(l.path) === l.value)
       .map((l) => l.path)
 
     expect(untranslated).toEqual([])
@@ -59,7 +64,7 @@ describe('dictionary parity', () => {
   it.each(translated.map((t) => t.code))('%s is written in its own script', (code) => {
     const entry = translated.find((t) => t.code === code)!
     const missing = flatten(entry.dict)
-      .filter((l) => !entry.script.test(l.value))
+      .filter((l) => !brandKeys.has(l.path) && !entry.script.test(l.value))
       .map((l) => l.path)
     expect(missing).toEqual([])
   })
@@ -75,6 +80,17 @@ describe('dictionary parity', () => {
     // Guards against adding a locale and forgetting to assert on it.
     const asserted = new Set<string>(['en', ...translated.map((t) => t.code)])
     expect(locales.filter((l) => !asserted.has(l))).toEqual([])
+  })
+
+  it('keeps the brand name identical across locales', () => {
+    for (const entry of translated) {
+      const leaves = new Map(flatten(entry.dict).map((l) => [l.path, l.value]))
+      for (const key of brandKeys) {
+        expect(leaves.get(key), `${entry.code}.${key}`).toBe(
+          new Map(enLeaves.map((l) => [l.path, l.value])).get(key),
+        )
+      }
+    }
   })
 
   it('declares metadata for every shipped locale, and none for planned ones', () => {

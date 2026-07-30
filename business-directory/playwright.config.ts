@@ -22,7 +22,12 @@ export default defineConfig({
   webServer: {
     command: 'npm run start',
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Always start our own server. Reusing whatever happens to be on the port
+    // produced three separate false failures during Phase 2: a server left
+    // running from an earlier build kept serving stale client chunks, so
+    // hydration never completed and every interactive test failed for a reason
+    // that had nothing to do with the code under test.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

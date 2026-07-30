@@ -5,7 +5,7 @@ import { brandColors } from '@/lib/brand'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: en.meta.title,
-    short_name: 'IN Directory',
+    short_name: 'Openly',
     description: en.meta.description,
     start_url: '/',
     display: 'standalone',

@@ -1,15 +1,17 @@
-# India Business Directory
+# Openly
 
-A business directory and review platform for India — verified listings, real
-opening hours, and reviews from people who actually went.
+**Open hours, honest reviews.**
+
+A business directory and review platform for India — verified listings, opening
+hours you can rely on, and reviews from people who actually went.
 
 Built on Next.js 16 and Supabase, with authorization enforced in the database
 rather than the app, geospatial + full-text search in a single Postgres
 function, and a locale registry designed for India's many languages.
 
-> **Status: Phase 0 (scaffold) complete.** The foundation, toolchain, and design
-> system are in place. The database, search, and listings land in Phase 1.
-> The full roadmap lives in **[PLAN.md](./PLAN.md)**.
+> **Status: Phase 2 complete.** Database, design system, and a working
+> browse-search-listing journey are in place. Auth, reviews, owner tools, and the
+> SEO layer are next. The full roadmap lives in **[PLAN.md](./PLAN.md)**.
 
 ---
 
@@ -29,7 +31,7 @@ to the phase that resolves it, so the rebuild has to prove it fixed them.
 | Runtime    | **Node 24 LTS** (see `.nvmrc`)                                    |
 | Language   | **TypeScript 5** — `strict`, `noUncheckedIndexedAccess`, no `any` |
 | Styling    | **Tailwind CSS 4** + CSS custom-property design tokens            |
-| Components | shadcn/ui + Radix primitives, restyled to the token layer         |
+| Components | Radix primitives, styled entirely on our own token layer          |
 | Database   | **Supabase** — Postgres 17, PostGIS, RLS, Auth, Storage           |
 | Testing    | **Vitest** (unit), **Playwright** (e2e), **pgTAP** (RLS policies) |
 | Hosting    | Vercel + Supabase cloud                                           |
@@ -84,7 +86,8 @@ src/
 │   └── not-found.tsx
 ├── components/
 │   ├── layout/           # shell, theme
-│   └── ui/               # shadcn primitives, retokenized
+│   ├── directory/        # BusinessCard, RatingStars, OpenNowBadge, HoursTable
+│   └── ui/               # Radix-backed primitives on our tokens
 ├── i18n/
 │   ├── config.ts         # locale + market registry
 │   ├── negotiate.ts      # Accept-Language resolution (pure, tested)
@@ -131,7 +134,8 @@ review — the infrastructure is ready for it.
 
 - **[PLAN.md](./PLAN.md)** — architecture, data model, RLS policy matrix, design
   system, 12-phase roadmap, regression register, quality gates
-- `docs/DESIGN.md` — extracted and expanded in Phase 2
+- **[docs/DESIGN.md](./docs/DESIGN.md)** — palette, typography, RTL rules,
+  component inventory, and the non-negotiables
 - `docs/SCHEMA.md` — generated in Phase 1
 
 ## License

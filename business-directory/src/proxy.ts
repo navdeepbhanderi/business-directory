@@ -31,6 +31,7 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals, API routes, and files with an extension.
-  matcher: ['/((?!_next/static|_next/image|api/|.*\\.).*)'],
+  // Everything except Next internals, API routes, files with an extension, and
+  // routes that are deliberately not locale-scoped (the internal style guide).
+  matcher: ['/((?!_next/static|_next/image|api/|design|.*\\.).*)'],
 }

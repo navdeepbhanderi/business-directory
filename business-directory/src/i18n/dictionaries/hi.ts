@@ -5,11 +5,11 @@ import type { Dictionary } from './en'
  *
  * Hand-written, not machine-translated — per the plan, half-good translation
  * reads worse than none. Seed *content* translation is a separate decision
- * tracked in PLAN.md §12.
+ * tracked in PLAN.md section 12.
  */
 export const hi: Dictionary = {
   meta: {
-    title: 'इंडिया बिज़नेस डायरेक्टरी',
+    title: 'Openly',
     description:
       'भारत भर के रेस्टोरेंट, क्लिनिक, दुकानें और सेवाएँ खोजें और उनकी समीक्षा पढ़ें — सत्यापित लिस्टिंग, वास्तविक खुलने का समय, और उन लोगों की समीक्षाएँ जो वहाँ असल में गए हैं।',
   },
@@ -25,31 +25,114 @@ export const hi: Dictionary = {
     toggleLanguage: 'भाषा बदलें',
     openMenu: 'मेन्यू खोलें',
     closeMenu: 'मेन्यू बंद करें',
+    menu: 'मेन्यू',
+    browse: 'ब्राउज़ करें',
   },
   home: {
     hero: {
       eyebrow: 'भारत',
-      title: 'ऐसी जगहें खोजें जो आपके समय के लायक हों।',
+      title: 'ऐसे व्यवसाय खोजें जो आपके समय के लायक हों।',
       subtitle:
         'सत्यापित लिस्टिंग, वास्तविक खुलने का समय, और उन लोगों की समीक्षाएँ जो वहाँ असल में गए हैं।',
       searchPlaceholder: 'रेस्टोरेंट, क्लिनिक, सेवाएँ खोजें…',
       searchButton: 'खोजें',
       nearMe: 'मेरे आसपास',
     },
-    scaffold: {
-      eyebrow: 'चरण ०',
-      title: 'नींव तैयार है।',
-      body: 'Next.js, डिज़ाइन टोकन और डेवलपमेंट टूल तैयार हैं। डेटाबेस, खोज और लिस्टिंग अगले चरण में।',
-      checklist: 'जाँच सूची',
+    categories: {
+      eyebrow: 'श्रेणियाँ',
+      title: 'आप क्या ढूँढ रहे हैं?',
+      description: 'छह शहरों में हर श्रेणी।',
     },
+    cities: {
+      eyebrow: 'शहर',
+      title: 'आप कहाँ हैं?',
+      description: 'शहर चुनें और देखें आसपास क्या है और अभी क्या खुला है।',
+    },
+    stats: {
+      listings: 'लिस्टिंग',
+      cities: 'शहर',
+      categories: 'श्रेणियाँ',
+      reviews: 'समीक्षाएँ',
+    },
+    featured: {
+      eyebrow: 'देखने लायक',
+      title: 'बेहतरीन रेटिंग वाली जगहें',
+      description: 'असली ग्राहकों से लगातार अच्छी समीक्षाएँ पाने वाली लिस्टिंग।',
+      viewAll: 'सभी लिस्टिंग देखें',
+    },
+  },
+  business: {
+    verified: 'सत्यापित',
+    promoted: 'प्रायोजित',
+    reviews: 'समीक्षाएँ',
+    openNow: 'खुला है',
+    closed: 'बंद',
+    closingSoon: 'जल्द बंद होगा',
+    hoursUnknown: 'समय उपलब्ध नहीं',
+    closesAt: '{time} बजे बंद',
+    opensAt: '{time} बजे खुलेगा',
+    opensOn: '{day} को {time} बजे खुलेगा',
+    today: 'आज',
+    hours: 'खुलने का समय',
+    amenitiesMore: '+{count} और',
+    call: 'कॉल करें',
+    directions: 'रास्ता',
+    website: 'वेबसाइट',
+    share: 'साझा करें',
+    save: 'सहेजें',
+    ratingOf: '5 में से {rating}',
+    starCount: '{count} स्टार',
+    starCountPlural: '{count} स्टार',
+  },
+  search: {
+    resultsFor: '“{query}” के परिणाम',
+    allListings: 'सभी लिस्टिंग',
+    resultCount: '{count} लिस्टिंग',
+    resultCountPlural: '{count} लिस्टिंग',
+    filters: 'फ़िल्टर',
+    clearAll: 'सभी हटाएँ',
+    sortBy: 'क्रमबद्ध करें',
+    sort: {
+      relevance: 'सबसे प्रासंगिक',
+      rating: 'सर्वोच्च रेटिंग',
+      reviews: 'सबसे ज़्यादा समीक्षाएँ',
+      nearest: 'सबसे नज़दीक',
+      newest: 'सबसे नए',
+    },
+    openNowFilter: 'अभी खुला है',
+    minRating: 'न्यूनतम रेटिंग',
+    priceLevel: 'कीमत',
+    distance: 'दूरी',
+    category: 'श्रेणी',
+    city: 'शहर',
+    empty: {
+      title: 'इन फ़िल्टरों से कोई लिस्टिंग नहीं मिली',
+      body: 'दूरी बढ़ाकर, न्यूनतम रेटिंग घटाकर, या कोई फ़िल्टर हटाकर देखें।',
+      action: 'सभी फ़िल्टर हटाएँ',
+    },
+  },
+  footer: {
+    tagline: 'भरोसेमंद समय, ईमानदार समीक्षाएँ। भारत भर के स्थानीय व्यवसायों की डायरेक्टरी।',
+    browse: 'ब्राउज़ करें',
+    forBusiness: 'व्यापार के लिए',
+    about: 'परिचय',
+    claimListing: 'अपनी लिस्टिंग पर दावा करें',
+    addListing: 'व्यवसाय जोड़ें',
+    plans: 'प्लान और कीमतें',
+    howItWorks: 'यह कैसे काम करता है',
+    guidelines: 'समीक्षा दिशानिर्देश',
+    contact: 'संपर्क',
+    demoNotice:
+      'यह एक प्रदर्शन परियोजना है। सभी लिस्टिंग, समीक्षाएँ और खाते काल्पनिक हैं और किसी वास्तविक व्यवसाय का वर्णन नहीं करते।',
+    rights: 'सर्वाधिकार सुरक्षित।',
   },
   common: {
     loading: 'लोड हो रहा है…',
     retry: 'फिर कोशिश करें',
-    openNow: 'अभी खुला है',
-    closed: 'बंद',
     reviews: 'समीक्षाएँ',
     verified: 'सत्यापित',
+    openNow: 'अभी खुला है',
+    closed: 'बंद',
     error: {
       title: 'कुछ गड़बड़ हो गई',
       body: 'यह अनुरोध पूरा नहीं हो सका। कृपया फिर कोशिश करें।',
