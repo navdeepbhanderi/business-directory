@@ -20,11 +20,38 @@ import type { Database } from '@/types/database'
  * Use `server.ts` instead the moment a page depends on who is asking —
  * favourites, an owner's drafts, anything personalised.
  */
+/**
+ * Retry a request that failed at the transport layer.
+ *
+ * A build renders 200+ listing pages across 11 workers, each making several
+ * requests, and the connection occasionally drops — which took down a whole build
+ * with `TypeError: fetch failed` on one page out of 235. A transient socket error
+ * is not a reason to fail a build, so it is retried twice.
+ *
+ * Deliberately narrow: only a thrown network error is retried. An HTTP error is
+ * returned untouched, because a 4xx or 5xx from PostgREST is an answer, and
+ * retrying it would hide a real problem behind a delay.
+ */
+async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 100 * 2 ** attempt))
+    }
+  }
+
+  throw lastError
+}
+
 export function createSupabasePublicClient() {
   const env = publicEnv()
 
   return createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { 'x-openly-client': 'public-ssg' } },
+    global: { headers: { 'x-openly-client': 'public-ssg' }, fetch: fetchWithRetry },
   })
 }

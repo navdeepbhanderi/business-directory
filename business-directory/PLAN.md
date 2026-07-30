@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phase 6 in progress (data layer done) · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phases 0–6 complete · Phase 7 next · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -708,14 +708,15 @@ diagnosed from the report and fixed:
    the rest parsed as HTML — script injection through an owner-controlled field.
    `jsonLdGraph` now escapes `<`, `>`, and `&`.
 
-**Known issue, unresolved:** 75 of 101 listings render the "Nearby" section at
-build time, though the RPC returns rows for the missing ones both in SQL and
-through PostgREST when queried directly. The arbitrary split points at the 11
-concurrent prerender workers getting an empty-but-not-errored response from local
-PostgREST under load, rather than at the data or the query. Not chased down
-further this phase; the e2e test targets the feature rather than one row, and the
-section degrades to being absent rather than broken. Worth isolating in Phase 12
-alongside the other performance work.
+**Known issue at the time — resolved in Phase 6:** 75 of 101 listings rendered the
+"Nearby" section at build time, though the RPC returned rows for the missing ones
+both in SQL and through PostgREST when queried directly. The suspicion recorded
+here was that the 11 concurrent prerender workers were getting an
+empty-but-not-errored response under load rather than that the data or the query
+was wrong — which turned out to be right. Phase 6 added a two-attempt retry for
+*thrown network errors only* in the public client, after a dropped socket failed a
+whole build on one page out of 235. All 100 English listings now render the
+section.
 
 </details>
 
@@ -774,47 +775,95 @@ start`; `db reset` does not reload them. Now asserted after editing.
 </details>
 
 <details open>
-<summary><b>Phase 6 · Reviews</b> — 🚧 <b>data layer complete, interface remaining</b></summary>
+<summary><b>Phase 6 · Reviews</b> — ✅ <b>complete</b></summary>
 
-**Done:** review photo storage (path-scoped like avatars), database-backed rate
-limiting, a `business_reviews` RPC that sorts by helpfulness _in SQL_, and
-`review_eligibility` so the UI can explain a refusal instead of disabling a
-button. 19 new pgTAP assertions; 87 in total.
+Reviews now work end to end: write, edit inside 24 hours, photos, helpful votes,
+owner replies, and reports that land in a moderation queue. Refusals are
+explained — "you cannot review a listing you own", "you have already reviewed
+this" — instead of a disabled button, which is what the prototype shipped.
 
-**Remaining:** the interface — composer with photo upload, the 24-hour edit
-window, vote and report controls, owner replies, and guest draft preservation
-across sign-in. Plus the e2e round trip that is this phase's exit criterion.
+**Delivered**
 
-**Three real defects found, two of them security**
+| Area | What landed |
+| --- | --- |
+| Composer | Guests can write. The draft is kept in `localStorage` and restored after sign-in, because demanding an account before someone has typed anything is where most people leave |
+| Photos | Up to 5 per review, uploaded to a uid-scoped storage path so a crafted filename cannot escape the author's folder |
+| Edit window | 24 hours, enforced by the RLS policy; an expired edit matches zero rows and is reported as a closed window rather than a failure |
+| Helpful votes | Optimistic button, reconciled against the server; voting on your own review is refused by the insert policy |
+| Sorting | Newest, most helpful, highest, lowest — counted in SQL, applied in the browser through `/api/reviews` |
+| Owner replies | One per review, so posting again amends it |
+| Reports | Closed set of reasons, one report per person per review, `pending` in the queue the Phase 9 console will read |
+| Rate limiting | 5 reviews per hour per person, enforced by a trigger, counted in a table no client can read |
 
-1. **`record_audit()` and `consume_rate_limit()` were callable by any signed-in
-   user.** Postgres grants EXECUTE to PUBLIC on every new function, and revoking
-   from `anon, authenticated` — which the earlier migrations did — does not remove
-   it. Neither function checks its caller, so a user could have forged entries in
-   the audit trail the admin console and the case study both rest on, or reset
-   their own rate-limit counter by passing a zero-length window.
-2. **Posting a review as a signed-in user failed outright.** The rating trigger
-   updates `businesses.rating`, and the Phase 1 column guard rejected it. The
-   guard exempted callers with no JWT, which covered seeding — but a trigger
-   firing inside a user's request still carries that user's JWT, so the guard
-   blocked its own maintenance trigger. **The entire review feature would have
-   been non-functional.**
-3. **My first fix for (2) made things worse**, and the tests caught that too. It
-   gated on `current_user` inside a SECURITY DEFINER function, where
-   `current_user` is always the owner — so the guard matched everyone and briefly
-   let a user set their own role and an owner verify their own listing. The guards
-   are now SECURITY INVOKER, where `current_user` is genuinely the caller's role.
+**How reviews stay compatible with static pages**
 
-**Why none of these surfaced earlier:** the seed runs without a JWT, and every
-review-insert assertion in the Phase 1 suite was a _rejection_ test — so the
-rating trigger never once fired on a successful authenticated insert. A suite
-made entirely of "this is refused" tests can be completely green while the
-success path is broken.
+This is the part worth reading. A listing page is statically generated with 1-hour
+ISR — that is the whole SEO argument for the project — and reviews are the most
+viewer-dependent thing on it. Reading the session during render, even through a
+helper three files deep, opts the route out of static rendering. It happened twice.
 
-There is now a generic guard: a test that enumerates every SECURITY DEFINER
-function and fails if any carries a PUBLIC execute grant, with an explicit
-allowlist for the read-only helpers. That closes the class rather than the three
-instances.
+The shape that resolves it:
+
+- The review **content** — summary, distribution, first page of rows — is rendered
+  on the server with the cookie-free anon client, so it is in the static HTML and
+  a crawler sees it.
+- **Sorting and paging** call `/api/reviews`, which is anon-only and identical for
+  every caller, so neither needs a search param on the page. Search params are
+  themselves a dynamic input; `?reviews=helpful` was enough on its own to turn all
+  200 pages dynamic.
+- **Who is asking** comes from `/api/review-context` after mount: signed in, may
+  review, owns the listing, which reviews they voted on. Marked
+  `private, no-store`, and explicitly not a security boundary — every action
+  behind it is enforced by RLS and by triggers, so a tampered response changes
+  what the UI offers and nothing about what the database permits.
+
+Result: `● /[locale]/business/[slug]` with 200 prerendered paths, reviews in the
+HTML, and a personalised composer.
+
+**Four defects found while finishing it**
+
+1. **`service_role` had no table grants at all.** Phase 1 established that RLS
+   narrows access and never creates it, and fixed the grants for `anon` and
+   `authenticated` — `service_role` was left out because nothing had used it yet.
+   Every server-only path the plan depends on (the Stripe webhook writing
+   subscriptions, the Phase 9 admin tooling, any backfill) would have failed with
+   `permission denied for table` on its first call. Found because the Phase 6 e2e
+   uses the service role to set up its starting state. Two pgTAP assertions now
+   cover it, and both were verified to fail with the grant revoked.
+2. **A hydration mismatch on every listing page** (React error #418). Relative
+   times are computed from "now", so the prerendered string and the hydrated one
+   legitimately differ — React treated that as a mismatch and threw away the
+   server HTML for the subtree. Now a `<time dateTime>` with
+   `suppressHydrationWarning`.
+3. **A transient `fetch failed` killed a whole build.** One page out of 235, 11
+   workers, local Postgres — a dropped socket. The public client now retries a
+   thrown network error twice and nothing else: an HTTP error is an answer, and
+   retrying it would hide a real problem behind a delay. This also fixed the
+   long-standing "Nearby" mystery — 75 of 101 pages had been rendering the section
+   at build time while the RPC returned rows in SQL and through PostgREST. It was
+   transport flakiness under prerender load the whole time; all 100 now render it.
+4. **The helpful vote never appeared to register.** The button's pressed state came
+   from the viewer context fetched at page load, so it reverted the moment the list
+   re-rendered. Now optimistic, then reconciled by re-reading the context.
+
+**One test lesson, again**
+
+The round-trip test failed on the vote step for a reason worth keeping: the
+optimistic button turns pressed *before* the insert returns, so waiting for
+`aria-pressed=true` and then asserting an ordering that depends on the vote row is
+a race the test creates itself. The fix is to wait for the effect, not the
+affordance. The same test then failed a second time because it counted *all* of
+that member's votes — the seed gives everyone plenty elsewhere — which is the
+"assertion that cannot fail" pattern in a new costume.
+
+**Exit criteria — met**
+
+- Round trip through the browser: submit → appears → rating updates → owner
+  replies → another member votes helpful → the ordering changes because of that
+  vote → a third member reports it → it is `pending` in the queue. One test, in
+  order, because five tests that pass individually would prove nothing together.
+- Listing pages still `●` prerendered with reviews in the HTML.
+- 137 unit · 138 e2e · 89 pgTAP, all green.
 
 </details>
 
@@ -1069,6 +1118,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 4 complete.** 200 statically generated listing pages with 1h ISR, full JSON-LD graph, per-listing OG cards, database-driven sitemap, photo lightbox, listing map, nearby listings. Lighthouse measured and then fixed to 95/100/100/100                                                                                                                                                                           |
 | 2026-07-30 | **Phase 5 complete.** Supabase Auth with SSR cookie sessions, email confirmation, password reset, OTP, Google OAuth, avatar storage, account settings and deletion. Caught and reverted a header change that had silently turned all 200 prerendered listing pages dynamic                                                                                                                                                |
 | 2026-07-30 | **Phase 6 data layer.** Review photo storage, database-backed rate limiting, SQL-side helpful sort, eligibility RPC. Found that `record_audit` and `consume_rate_limit` were callable by any signed-in user, and that posting a review as a signed-in user failed outright because the column guard blocked its own rating trigger. Interface still to come                                                               |
+| 2026-07-30 | **Phase 6 complete.** Composer with photo upload and guest drafts, 24-hour edit window, helpful votes, owner replies, reports into the moderation queue. Reviews render on statically generated pages by splitting content (anon, prerendered) from viewer state (`/api/review-context`, after mount). Found that `service_role` had no table grants at all, a hydration mismatch on every listing page, and a transient prerender fetch failure that also explains the long-standing "Nearby" gaps |
 
 ---
 
@@ -1272,3 +1322,42 @@ target and is not a detail to discover later.
   own, and as INVOKER `current_user` reveals whether the statement came from a
   client or from one of our own SECURITY DEFINER routines. As DEFINER that
   distinction is invisible.
+
+### Phase 6 (part 2) — Review interface
+
+**Decisions taken during the build**
+
+- **Content on the server, identity in the browser.** The listing page renders
+  reviews with the anon client and fetches only viewer-specific state after mount.
+  Anything else loses static rendering, and the static render is the product's SEO
+  argument. This is now the standing rule for every public page.
+- **Sorting is not a search param.** `?reviews=helpful` reads `searchParams`, which
+  is a dynamic input, so it turned all 200 prerendered pages dynamic on its own.
+  Sorting moved to `/api/reviews` and client state. The cost is that an ordering is
+  no longer a shareable URL; the reviews are still fully present without
+  JavaScript, which is the part that matters for a crawler and for a reader.
+- **The viewer-context endpoint is not a security boundary,** and its doc comment
+  says so. Every action behind it — vote, report, reply, edit — is enforced by RLS
+  and triggers. If the endpoint lied, the UI would offer a control the database
+  then refuses.
+- **The guest composer defaults to the signed-out form while the context loads.**
+  It is immediately usable, the draft survives either way, and it never has to be
+  replaced by something *more* restrictive once the answer arrives.
+- **`getReviewsForBusiness` was deleted rather than left unused.** It reads
+  cookies; a future page calling it would silently lose static rendering. A helper
+  whose only remaining property is that it is dangerous is not worth keeping.
+- **`service_role` gets broad grants, deliberately.** It bypasses RLS by design and
+  its key is server-only — the boundary that protects it is that the key never
+  reaches a browser. Narrow grants are the right tool for `anon` and
+  `authenticated`, which are reachable from a client.
+
+**Defects found, and by what**
+
+| Found by | Defect |
+| --- | --- |
+| The build output | Listing pages went dynamic twice: once from a session read, once from a search param |
+| The e2e fixture | `service_role` held no table grants, so every server-only path in the plan would have failed on first use |
+| A browser console listener in a throwaway probe | React error #418 on every listing page — relative times mismatching between prerender and hydration |
+| A build that failed on 1 page of 235 | Transient `fetch failed` under 11 prerender workers; the retry that fixes it also fixed the "Nearby" section missing from 26 of 101 pages, which had been recorded as an unexplained known issue |
+| The round-trip test | The helpful button reverted to unpressed as soon as the list re-rendered |
+| The round-trip test, twice more | Both failures were the test's own fault: racing its optimistic UI, then counting votes it had not scoped to the listing |

@@ -7,16 +7,17 @@ import { getDictionary } from '@/i18n/get-dictionary'
 import {
   getBusinessBySlug,
   getBusinessHours,
-  getBusinessReviews,
   getNearbyBusinesses,
+  getPublishedReviews,
   getPublishedSlugs,
+  getRatingDistribution,
 } from '@/lib/queries/businesses'
+import { ReviewsSection } from '@/components/reviews/reviews-section'
 import { localizedText, interpolate } from '@/lib/i18n-content'
 import {
   formatCount,
   formatDistance,
   formatPriceRange,
-  formatRelative,
   priceLevelSymbol,
 } from '@/lib/format'
 import { zonedParts } from '@/lib/hours'
@@ -32,7 +33,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { RatingBreakdown, RatingStars } from '@/components/directory/rating-stars'
+import { RatingStars } from '@/components/directory/rating-stars'
 import { HoursTable, OpenNowBadge } from '@/components/directory/open-now-badge'
 import { AmenityChips } from '@/components/directory/amenity-chips'
 import { PhotoGallery } from '@/components/directory/photo-gallery'
@@ -65,14 +66,18 @@ async function load(locale: Locale, slug: string) {
   const business = await getBusinessBySlug(slug)
   if (!business) return null
 
-  const [dict, hours, reviews, nearby] = await Promise.all([
+  // Every one of these uses the cookie-free anon client, which is what keeps this
+  // page in the prerender. Reading the session here — directly or through a
+  // helper — would turn all 200 listing pages dynamic.
+  const [dict, hours, reviews, distribution, nearby] = await Promise.all([
     getDictionary(locale),
     getBusinessHours(business.id),
-    getBusinessReviews(business.id, { sort: 'newest', limit: 8 }),
+    getPublishedReviews(business.id, { sort: 'newest', limit: 10 }),
+    getRatingDistribution(business.id),
     getNearbyBusinesses(business.id, 4),
   ])
 
-  return { business, dict, hours, reviews, nearby }
+  return { business, dict, hours, reviews, distribution, nearby }
 }
 
 export async function generateMetadata({
@@ -138,7 +143,7 @@ export default async function BusinessPage({
   const loaded = await load(locale, slug)
   if (!loaded) notFound()
 
-  const { business, dict, hours, reviews, nearby } = loaded
+  const { business, dict, hours, reviews, distribution, nearby } = loaded
 
   const name = localizedText(business.name, business.name_i18n, locale)
   const description = business.description
@@ -173,13 +178,6 @@ export default async function BusinessPage({
     opensOn: dict.business.opensOn,
   }
 
-  const starLabels = {
-    1: interpolate(dict.business.starCount, { count: 1 }),
-    2: interpolate(dict.business.starCountPlural, { count: 2 }),
-    3: interpolate(dict.business.starCountPlural, { count: 3 }),
-    4: interpolate(dict.business.starCountPlural, { count: 4 }),
-    5: interpolate(dict.business.starCountPlural, { count: 5 }),
-  } as const
 
   const directionsUrl =
     business.latitude !== null && business.longitude !== null
@@ -220,7 +218,7 @@ export default async function BusinessPage({
     ),
     ...reviewsJsonLd(
       reviews.items.slice(0, 5).map((review) => ({
-        authorName: review.author?.full_name ?? 'Anonymous',
+        authorName: review.author_name ?? 'Anonymous',
         rating: review.rating,
         body: review.body,
         createdAt: review.created_at,
@@ -429,66 +427,16 @@ export default async function BusinessPage({
             </section>
           )}
 
-          <section>
-            <h2 className="text-xl">{dict.business.reviewsHeading}</h2>
-            {reviews.items.length === 0 ? (
-              <p className="text-ink-muted mt-3 text-sm">{dict.business.noReviewsYet}</p>
-            ) : (
-              <div className="mt-4 grid gap-6 sm:grid-cols-[14rem_1fr]">
-                <div className="rounded-card border-line bg-surface flex flex-col gap-3 border p-4">
-                  <div className="text-center">
-                    <p className="num font-display text-4xl">{business.rating.toFixed(1)}</p>
-                    <RatingStars
-                      value={business.rating}
-                      locale={locale}
-                      size="sm"
-                      showValue={false}
-                      className="mt-1 justify-center"
-                    />
-                    <p className="num text-ink-muted mt-1 text-xs">
-                      {formatCount(reviews.total, locale)} {dict.business.reviews}
-                    </p>
-                  </div>
-                  <RatingBreakdown
-                    counts={reviews.counts}
-                    locale={locale}
-                    starLabels={starLabels}
-                  />
-                </div>
-
-                <ul className="flex flex-col gap-4">
-                  {reviews.items.map((review) => (
-                    <li key={review.id} className="rounded-card border-line bg-surface border p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-ink text-sm font-medium">
-                          {review.author?.full_name ?? '—'}
-                        </span>
-                        <span className="text-ink-muted text-xs">
-                          {formatRelative(review.created_at, locale)}
-                        </span>
-                      </div>
-                      <RatingStars
-                        value={review.rating}
-                        locale={locale}
-                        size="sm"
-                        showValue={false}
-                        className="mt-2"
-                      />
-                      <p className="text-ink-muted mt-2 text-sm leading-relaxed">{review.body}</p>
-                      {review.review_replies && (
-                        <div className="rounded-control border-accent bg-surface-sunken mt-3 border-s-2 p-3">
-                          <p className="text-accent text-xs font-medium">{name}</p>
-                          <p className="text-ink-muted mt-1 text-sm">
-                            {review.review_replies.body}
-                          </p>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
+          <ReviewsSection
+            businessId={business.id}
+            businessSlug={business.slug}
+            locale={locale}
+            dict={dict}
+            reviews={reviews.items}
+            total={distribution.total}
+            counts={distribution.counts}
+            averageRating={business.rating}
+          />
         </div>
 
         <aside className="flex flex-col gap-6">

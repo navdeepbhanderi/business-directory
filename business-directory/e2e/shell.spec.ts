@@ -60,12 +60,17 @@ test.describe('navigation', () => {
     await expect(dialog).toBeHidden()
   })
 
-  test('the header search reaches results', async ({ page }) => {
+  test('the search field in the shell reaches results', async ({ page }) => {
     await page.goto('/en')
-    await page
-      .getByPlaceholder(/Search restaurants/i)
-      .first()
-      .fill('bakery')
+
+    /*
+     * Two fields carry this placeholder: the header one, which is `hidden
+     * md:block`, and the hero one. On the mobile project the header field is the
+     * first in the DOM and invisible, so `.first()` was filling something no
+     * person can reach — a 30s timeout rather than a useful failure. Taking the
+     * first *visible* one exercises whichever field that viewport actually offers.
+     */
+    await page.locator('input[name="q"]:visible').first().fill('bakery')
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/en\/search\?q=bakery/)
     await expect(page.getByRole('heading', { level: 1 })).toContainText('bakery')

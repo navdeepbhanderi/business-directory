@@ -214,6 +214,36 @@ select ok(
 );
 
 -- ===========================================================================
+-- service_role can actually reach the tables
+--
+-- Missed for five phases: RLS-bypassing is not the same as being granted, and
+-- service_role had no grants at all, so every server-only path — the Stripe
+-- webhook, admin tooling, backfills — would have failed on its first call.
+-- ===========================================================================
+
+select pg_temp.become_postgres();
+
+select lives_ok(
+  $$ set local role service_role;
+     select count(*) from public.businesses;
+     select count(*) from public.reviews;
+     select count(*) from public.subscriptions;
+     select count(*) from public.audit_log;
+     reset role $$,
+  'service_role: can read the tables the server writes on its own behalf'
+);
+
+select lives_ok(
+  $$ set local role service_role;
+     insert into public.business_events (business_id, event_type)
+     select id, 'view' from public.businesses where status = 'published' limit 1;
+     reset role $$,
+  'service_role: can write without a policy standing in the way'
+);
+
+select pg_temp.become_postgres();
+
+-- ===========================================================================
 -- business_reviews sorting
 -- ===========================================================================
 

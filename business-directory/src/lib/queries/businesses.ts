@@ -168,7 +168,7 @@ export async function getBusinessBySlug(slug: string) {
       id, slug, name, name_i18n, description, description_i18n,
       address_line1, address_line2, postal_code, phone, email, website,
       price_level, amenities, rating, review_count, verified, status,
-      latitude, longitude, published_at, updated_at,
+      latitude, longitude, published_at, updated_at, owner_id,
       cities ( slug, name, name_i18n, state ),
       localities ( slug, name, name_i18n ),
       business_photos ( storage_path, alt, sort_order ),
@@ -187,75 +187,28 @@ export async function getBusinessBySlug(slug: string) {
 export type BusinessDetail = NonNullable<Awaited<ReturnType<typeof getBusinessBySlug>>>
 
 /**
- * Published reviews plus the star distribution.
+ * The star distribution for a listing, and how many published reviews there are.
  *
- * The `profiles` embed needs an explicit foreign-key hint: `review_votes` joins
- * reviews to profiles as well, so PostgREST sees two possible relationships and
- * refuses to guess. Naming the constraint removes the ambiguity.
+ * Separate from the review rows because the histogram covers every review while
+ * the list shows one page, and because the page needs it during prerendering.
  */
-export async function getBusinessReviews(
-  businessId: string,
-  options: { sort?: 'newest' | 'highest' | 'lowest' | 'helpful'; limit?: number } = {},
-) {
+export async function getRatingDistribution(businessId: string) {
   const supabase = createSupabasePublicClient()
-  const limit = options.limit ?? 10
-
-  const query = supabase
+  const { data, error } = await supabase
     .from('reviews')
-    .select(
-      `
-      id, rating, body, created_at, edited_at,
-      author:profiles!reviews_author_id_fkey ( full_name, avatar_url ),
-      review_replies ( body, created_at ),
-      review_votes ( user_id )
-      `,
-    )
+    .select('rating')
     .eq('business_id', businessId)
     .eq('status', 'published')
-    .limit(limit)
 
-  switch (options.sort) {
-    case 'highest':
-      void query.order('rating', { ascending: false })
-      break
-    case 'lowest':
-      void query.order('rating', { ascending: true })
-      break
-    default:
-      void query.order('created_at', { ascending: false })
-  }
-
-  const [reviews, distribution] = await Promise.all([
-    query,
-    supabase
-      .from('reviews')
-      .select('rating')
-      .eq('business_id', businessId)
-      .eq('status', 'published'),
-  ])
-
-  if (reviews.error) throw new Error(`getBusinessReviews failed: ${reviews.error.message}`)
-  if (distribution.error)
-    throw new Error(`getBusinessReviews failed: ${distribution.error.message}`)
+  if (error) throw new Error(`getRatingDistribution failed: ${error.message}`)
 
   const counts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-  for (const row of distribution.data ?? []) {
+  for (const row of data ?? []) {
     const star = row.rating as 1 | 2 | 3 | 4 | 5
     if (star >= 1 && star <= 5) counts[star] += 1
   }
 
-  const items = (reviews.data ?? []).map((row) => ({
-    ...row,
-    // Sorting by vote count in SQL would need an aggregate join; the page size
-    // is small enough that sorting the fetched page is honest and cheaper.
-    helpfulCount: row.review_votes?.length ?? 0,
-  }))
-
-  if (options.sort === 'helpful') {
-    items.sort((a, b) => b.helpfulCount - a.helpfulCount)
-  }
-
-  return { items, counts, total: distribution.data?.length ?? 0 }
+  return { counts, total: data?.length ?? 0 }
 }
 
 /** Slugs of every published listing — used by generateStaticParams. */
@@ -351,5 +304,59 @@ export async function getSitemapEntries() {
     businesses: businesses.data ?? [],
     cities: (cities.data ?? []).map((row) => row.slug),
     categories: (categories.data ?? []).map((row) => row.slug),
+  }
+}
+
+/**
+ * Reviews for a listing, sorted in SQL.
+ *
+ * Uses the cookie-bound client rather than the public one, because the RPC
+ * reports whether *the viewer* has voted and whether they are the author. Those
+ * answers depend on who is asking, so this read is legitimately dynamic — unlike
+ * the listing body, which is not.
+ */
+/**
+ * Published reviews, read without a session.
+ *
+ * `business_reviews` is SECURITY INVOKER, so the anon key sees exactly what RLS
+ * allows: published reviews of published listings, with `viewer_voted` and
+ * `viewer_is_author` false because there is no viewer. That is what makes this
+ * safe to call during prerendering — reading cookies here would turn every
+ * listing page dynamic, which is the trap this exists to avoid. The viewer's own
+ * state is layered on in the browser by /api/review-context.
+ */
+export async function getPublishedReviews(
+  businessId: string,
+  options: { sort?: string; limit?: number; offset?: number } = {},
+) {
+  const supabase = createSupabasePublicClient()
+
+  const { data, error } = await supabase.rpc('business_reviews', {
+    p_business_id: businessId,
+    p_sort: options.sort ?? 'newest',
+    p_limit: options.limit ?? 10,
+    p_offset: options.offset ?? 0,
+  })
+  if (error) throw new Error(`business_reviews failed: ${error.message}`)
+
+  const rows = data ?? []
+  return { items: rows, total: Number(rows[0]?.total_count ?? 0) }
+}
+
+/** Whether the viewer may review this listing, and if not, why. */
+export async function getReviewEligibility(businessId: string) {
+  const { createSupabaseServerClient } = await import('@/lib/supabase/server')
+  const supabase = await createSupabaseServerClient()
+
+  const { data, error } = await supabase.rpc('review_eligibility', {
+    p_business_id: businessId,
+  })
+  if (error) throw new Error(`review_eligibility failed: ${error.message}`)
+
+  const row = data?.[0]
+  return {
+    canReview: row?.can_review ?? false,
+    reason: row?.reason ?? null,
+    existingReviewId: row?.existing_review_id ?? null,
   }
 }

@@ -9,10 +9,11 @@ Built on Next.js 16 and Supabase, with authorization enforced in the database
 rather than the app, geospatial + full-text search in a single Postgres
 function, and a locale registry designed for India's many languages.
 
-> **Status: Phase 5 complete.** Database, design system, faceted discovery,
-> statically generated listing pages (Lighthouse 95/100/100/100), and
-> authentication with accounts. Reviews, lists, and owner tools are next. The
-> roadmap lives in **[PLAN.md](./PLAN.md)**.
+> **Status: Phase 6 complete.** Database, design system, faceted discovery,
+> statically generated listing pages (Lighthouse 95/100/100/100), authentication
+> with accounts, and reviews — writing, photos, a 24-hour edit window, helpful
+> votes, owner replies, and reports into a moderation queue. Lists and owner tools
+> are next. The roadmap lives in **[PLAN.md](./PLAN.md)**.
 
 ---
 
@@ -129,6 +130,13 @@ Supabase server client, so RLS applies to every query under the caller's
 identity. The service-role client is `server-only`, and importing it from a
 Client Component is a build error.
 
+**Public pages read with the anon client, and never the session.** Reading cookies
+during render — even through a helper several files deep, even via `searchParams` —
+opts a route out of static rendering, which is the SEO argument for the whole
+project. Anything viewer-specific on a public page is fetched after mount from a
+`private, no-store` endpoint (`/api/review-context` is the worked example) and
+treated as presentation only; the database is what actually permits the action.
+
 **RTL is built, not bolted on.** Layout uses logical properties throughout
 (`ps-*`, `pe-*`, `ms-*`, `me-*`). No RTL locale ships until Urdu can get native
 review — the infrastructure is ready for it.
@@ -139,6 +147,9 @@ review — the infrastructure is ready for it.
   system, 12-phase roadmap, regression register, quality gates
 - **[docs/DESIGN.md](./docs/DESIGN.md)** — palette, typography, RTL rules,
   component inventory, and the non-negotiables
+- **[docs/AUTH-SETUP.md](./docs/AUTH-SETUP.md)** — what to configure for Google
+  sign-in, production email, and phone OTP (including the Indian DLT registration
+  that takes days)
 - `docs/SCHEMA.md` — generated in Phase 1
 
 ## License

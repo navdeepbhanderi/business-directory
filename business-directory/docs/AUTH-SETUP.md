@@ -264,7 +264,7 @@ Beyond the three above, these are needed once and are easy to forget.
 
 - [ ] Create the cloud project; note the **project ref**.
 - [ ] `npx supabase link --project-ref <ref>`
-- [ ] `npx supabase db push` — applies all 15 migrations.
+- [ ] `npx supabase db push` — applies all 20 migrations.
 - [ ] **Enable the access-token hook.** Dashboard → **Authentication → Hooks →
       Custom Access Token**, pointing at `public.custom_access_token_hook`.
       `config.toml` only registers it locally. **Without this, `auth_role()` falls

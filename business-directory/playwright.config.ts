@@ -1,5 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// The review tests need the service-role key to set up their starting state and
+// to read the moderation queue, which has no page yet. Node loads it natively, so
+// this costs no dependency.
+try {
+  process.loadEnvFile('.env.local')
+} catch {
+  // CI supplies these as real environment variables.
+}
+
 const PORT = 3000
 const baseURL = `http://127.0.0.1:${PORT}`
 
