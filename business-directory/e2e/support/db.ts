@@ -99,3 +99,52 @@ export async function reviewFixture(slot: number) {
     reporter: { ...reporter, email: await emailFor(reporter.id) },
   }
 }
+
+/**
+ * A member with nothing saved, for the favourites and lists journeys.
+ *
+ * Deliberately uses members from further down the seed than `reviewFixture` does,
+ * and only ever deletes lists it created itself (`E2E ` prefix). The seeded lists
+ * belong to the first member and the pgTAP suite reads them, so a test that
+ * cleared them would leave `npm run db:test` failing depending on the order the
+ * two suites happened to run in.
+ */
+export async function savedFixture(slot: number) {
+  const db = admin()
+
+  const { data: memberRows, error: memberError } = await db
+    .from('profiles')
+    .select('id')
+    .eq('role', 'user')
+    .order('created_at')
+    .range(20 + slot, 20 + slot)
+  if (memberError) throw new Error(memberError.message)
+
+  const member = ((memberRows ?? []) as { id: string }[])[0]
+  if (!member) throw new Error('need a seeded member past the first twenty')
+
+  const { error: clearFavorites } = await db.from('favorites').delete().eq('user_id', member.id)
+  if (clearFavorites) throw new Error(clearFavorites.message)
+
+  const { error: clearLists } = await db
+    .from('lists')
+    .delete()
+    .eq('owner_id', member.id)
+    .like('name', 'E2E %')
+  if (clearLists) throw new Error(clearLists.message)
+
+  const { data: sharedRows } = await db
+    .from('lists')
+    .select('name, share_slug')
+    .eq('visibility', 'public')
+    .not('share_slug', 'is', null)
+    .limit(1)
+  const shared = ((sharedRows ?? []) as { name: string; share_slug: string }[])[0]
+  if (!shared) throw new Error('the seed should contain one public list')
+
+  return {
+    member: { id: member.id, email: await emailFor(member.id) },
+    /** A list shared in the seed, for the signed-out reader. */
+    seededShared: shared,
+  }
+}

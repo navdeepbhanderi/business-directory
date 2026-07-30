@@ -13,6 +13,9 @@ import {
   getRatingDistribution,
 } from '@/lib/queries/businesses'
 import { ReviewsSection } from '@/components/reviews/reviews-section'
+import { CardActions, addToListLabels, favoriteLabels } from '@/components/saved/card-actions'
+import { FavoriteButton } from '@/components/saved/favorite-button'
+import { AddToListMenu } from '@/components/saved/add-to-list-menu'
 import { localizedText, interpolate } from '@/lib/i18n-content'
 import {
   formatCount,
@@ -329,6 +332,22 @@ export default async function BusinessPage({
               </a>
             </Button>
           )}
+
+          {/* Labelled here, an icon on cards: on the page someone is deciding
+              about, "Save" earns its words. */}
+          <FavoriteButton
+            businessId={business.id}
+            businessName={name}
+            locale={locale}
+            variant="labelled"
+            labels={favoriteLabels(dict)}
+          />
+          <AddToListMenu
+            businessId={business.id}
+            businessName={name}
+            labels={addToListLabels(dict)}
+            className="size-10 bg-transparent"
+          />
         </div>
 
         {categories.length > 0 && (
@@ -497,6 +516,14 @@ export default async function BusinessPage({
                   closed: dict.business.closed,
                 }}
                 href={`/${locale}/business/${row.slug}`}
+                actions={
+                  <CardActions
+                    businessId={row.id}
+                    businessName={localizedText(row.name, row.name_i18n, locale)}
+                    locale={locale}
+                    dict={dict}
+                  />
+                }
                 business={{
                   id: row.id,
                   slug: row.slug,

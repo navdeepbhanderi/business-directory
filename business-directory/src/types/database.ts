@@ -1435,12 +1435,53 @@ export type Database = {
           slug: string
         }[]
       }
+      favorite_businesses: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          address_line1: string
+          city_name: string
+          id: string
+          is_open: boolean
+          locality_name: string
+          name: string
+          name_i18n: Json
+          photo_url: string
+          price_level: number
+          rating: number
+          review_count: number
+          saved_at: string
+          slug: string
+          total_count: number
+          verified: boolean
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_open_at: {
         Args: { p_at?: string; p_business_id: string }
         Returns: boolean
       }
       jsonb_values_text: { Args: { source: Json }; Returns: string }
+      list_businesses: {
+        Args: { p_list_id: string }
+        Returns: {
+          added_at: string
+          address_line1: string
+          city_name: string
+          id: string
+          is_open: boolean
+          locality_name: string
+          name: string
+          name_i18n: Json
+          note: string
+          photo_url: string
+          price_level: number
+          rating: number
+          review_count: number
+          slug: string
+          sort_order: number
+          verified: boolean
+        }[]
+      }
       nearby_businesses: {
         Args: { p_business_id: string; p_limit?: number; p_radius_km?: number }
         Returns: {
@@ -1461,6 +1502,7 @@ export type Database = {
           verified: boolean
         }[]
       }
+      new_share_slug: { Args: never; Returns: string }
       owns_business: { Args: { target: string }; Returns: boolean }
       record_audit: {
         Args: {
@@ -1494,6 +1536,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reorder_list_items: {
+        Args: { p_business_ids: string[]; p_list_id: string }
+        Returns: number
       }
       review_eligibility: {
         Args: { p_business_id: string }
@@ -1543,6 +1589,38 @@ export type Database = {
           review_count: number
           slug: string
           total_count: number
+          verified: boolean
+        }[]
+      }
+      shared_list: {
+        Args: { p_slug: string }
+        Returns: {
+          description: string
+          id: string
+          item_count: number
+          name: string
+          owner_name: string
+          updated_at: string
+          visibility: Database["public"]["Enums"]["list_visibility"]
+        }[]
+      }
+      shared_list_items: {
+        Args: { p_slug: string }
+        Returns: {
+          address_line1: string
+          city_name: string
+          id: string
+          is_open: boolean
+          locality_name: string
+          name: string
+          name_i18n: Json
+          note: string
+          photo_url: string
+          price_level: number
+          rating: number
+          review_count: number
+          slug: string
+          sort_order: number
           verified: boolean
         }[]
       }

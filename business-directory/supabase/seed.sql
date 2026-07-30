@@ -546,3 +546,91 @@ order by b.created_at
 limit 6
 on conflict do nothing;
 
+
+-- ===========================================================================
+-- Saved content
+--
+-- Favourites for most members, and three lists for one of them — one of each
+-- visibility — so the account pages, the share link, and the "make it private
+-- again" path all have something real to render.
+-- ===========================================================================
+
+insert into public.favorites (user_id, business_id)
+select p.id, b.id
+from public.profiles p
+join lateral (
+  select id from public.businesses
+  where status = 'published'
+  order by md5(id::text || p.id::text)
+  limit 4
+) b on true
+where p.role = 'user'
+on conflict do nothing;
+
+do $$
+declare
+  member    uuid := (select id from public.profiles where role = 'user' order by created_at limit 1);
+  l_public   uuid;
+  l_unlisted uuid;
+  l_private  uuid;
+begin
+  insert into public.lists (owner_id, name, description, visibility)
+  values (
+    member, 'Weekend food crawl',
+    'Six places worth the queue, in the order I would do them.', 'public'
+  ) returning id into l_public;
+
+  insert into public.lists (owner_id, name, description, visibility)
+  values (
+    member, 'Sending to Dad',
+    'Clinics and pharmacies near his place, all open on Sundays.', 'unlisted'
+  ) returning id into l_unlisted;
+
+  insert into public.lists (owner_id, name, description, visibility)
+  values (member, 'Try later', null, 'private') returning id into l_private;
+
+  insert into public.list_items (list_id, business_id, note, sort_order)
+  select l_public, b.id,
+         case when row_number() over (order by b.slug) = 1
+              then 'Start here — they open at seven.' end,
+         (row_number() over (order by b.slug) - 1)::int
+  from public.businesses b
+  where b.status = 'published'
+    and exists (
+      select 1 from public.business_categories bc
+      join public.categories c on c.id = bc.category_id
+      where bc.business_id = b.id and c.slug = 'restaurants'
+    )
+  order by b.slug
+  limit 6;
+
+  insert into public.list_items (list_id, business_id, sort_order)
+  select l_unlisted, b.id, (row_number() over (order by b.slug) - 1)::int
+  from public.businesses b
+  where b.status = 'published'
+    and exists (
+      select 1 from public.business_categories bc
+      join public.categories c on c.id = bc.category_id
+      where bc.business_id = b.id and c.slug in ('clinics-diagnostics', 'pharmacies')
+    )
+  order by b.slug
+  limit 4;
+
+  insert into public.list_items (list_id, business_id, sort_order)
+  select l_private, b.id, (row_number() over (order by b.slug) - 1)::int
+  from public.businesses b
+  where b.status = 'published'
+  order by md5(b.id::text)
+  limit 3;
+end;
+$$;
+
+-- One saved search, so the account page is not empty on a fresh database.
+insert into public.saved_searches (user_id, name, params, notify)
+select p.id, 'Open bakeries near me',
+       jsonb_build_object('q', 'bakery', 'open', true, 'sort', 'nearest'),
+       true
+from public.profiles p
+where p.role = 'user'
+order by p.created_at
+limit 1;

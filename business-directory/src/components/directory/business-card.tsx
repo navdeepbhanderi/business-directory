@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { BadgeCheck, MapPin, Megaphone } from 'lucide-react'
 import type { Locale } from '@/i18n/config'
 import { formatCount, formatDistance, priceLevelSymbol } from '@/lib/format'
@@ -47,6 +48,7 @@ export function BusinessCard({
   labels,
   href,
   variant = 'grid',
+  actions,
   className,
 }: {
   business: BusinessCardData
@@ -54,6 +56,14 @@ export function BusinessCard({
   labels: BusinessCardLabels
   href: string
   variant?: 'grid' | 'list'
+  /**
+   * Viewer-specific controls — save, add to a list — rendered over the photo.
+   *
+   * A slot rather than props so this stays a Server Component: the controls are
+   * client islands passed in as elements, and a card with no viewer state (an OG
+   * image, a shared list seen by a stranger) simply passes nothing.
+   */
+  actions?: ReactNode
   className?: string
 }) {
   const distance = formatDistance(business.distanceKm, locale)
@@ -91,6 +101,9 @@ export function BusinessCard({
             {business.name.charAt(0)}
           </span>
         )}
+
+        {/* Above the stretched link, which covers the whole card. */}
+        {actions && <div className="absolute end-3 top-3 z-10 flex gap-1.5">{actions}</div>}
 
         {business.promoted && (
           <span className="rounded-pill bg-surface/90 text-ink-muted absolute start-3 top-3 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium backdrop-blur">

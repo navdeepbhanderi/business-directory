@@ -15,6 +15,7 @@ import {
   DEFAULT_PAGE_SIZE,
   parseSearchParams,
   searchHref,
+  serializeSearchState,
   toQueryParams,
   withChange,
   type SearchState,
@@ -27,6 +28,8 @@ import { EmptyState } from '@/components/directory/empty-state'
 import { ActiveFilterChips, FilterPanel, SortLinks } from '@/components/directory/filter-bar'
 import { NearMeButton } from '@/components/directory/near-me-button'
 import { ResultsView } from '@/components/directory/results-view'
+import { CardActions, favoriteLabels } from '@/components/saved/card-actions'
+import { SaveSearchButton } from '@/components/saved/save-search-button'
 
 /**
  * Search.
@@ -109,7 +112,28 @@ export default async function SearchPage({
         </aside>
 
         <div>
-          <SortLinks state={state} locale={locale} dict={dict} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SortLinks state={state} locale={locale} dict={dict} />
+            <SaveSearchButton
+              query={serializeSearchState(state)}
+              locale={locale}
+              returnTo={searchHref(locale, state)}
+              labels={{
+                trigger: dict.saved.saveSearch,
+                title: dict.saved.saveSearchTitle,
+                description: dict.saved.saveSearchDescription,
+                nameLabel: dict.saved.nameLabel,
+                notify: dict.saved.notifyLabel,
+                submit: dict.saved.saveSearch,
+                saved: dict.saved.savedChanges,
+                signIn: dict.saved.signInToSave,
+                anywhere: dict.saved.savedSearchAnywhere,
+                openNow: dict.saved.savedSearchOpenNow,
+                near: dict.saved.savedSearchNear,
+                errors: dict.saved.errors,
+              }}
+            />
+          </div>
 
           <Suspense key={JSON.stringify(state)} fallback={<ResultsSkeleton />}>
             <Results state={state} locale={locale} dict={dict} filterData={filterData} />
@@ -199,11 +223,19 @@ async function Results({
             state.lat !== null && state.lng !== null ? { lat: state.lat, lng: state.lng } : null
           }
           locale={locale}
+          // The full search href, so signing in from the map popover comes back
+          // to the same filters rather than to a bare /search.
+          returnTo={searchHref(locale, state)}
           labels={{
             showMap: dict.search.showMap,
-            hideMap: dict.search.hideMap,
+            showList: dict.search.showList,
             unavailable: dict.search.mapUnavailable,
             searchThisArea: dict.search.searchThisArea,
+            closePopover: dict.saved.closePopover,
+            viewListing: dict.saved.viewListing,
+            openNow: dict.business.openNow,
+            closed: dict.business.closed,
+            favorite: favoriteLabels(dict),
           }}
         >
           {/* One column of horizontal cards rather than a two-up grid: beside
@@ -217,6 +249,15 @@ async function Results({
                 locale={locale}
                 labels={cardLabels}
                 href={`/${locale}/business/${row.slug}`}
+                actions={
+                  <CardActions
+                    businessId={row.id}
+                    businessName={localizedText(row.name, row.name_i18n, locale)}
+                    locale={locale}
+                    dict={dict}
+                    returnTo={searchHref(locale, state)}
+                  />
+                }
                 business={{
                   id: row.id,
                   slug: row.slug,

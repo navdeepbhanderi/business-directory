@@ -5,6 +5,8 @@ import { Map as MapIcon, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ResultsSyncProvider, HoverDelegate, HoverHighlight } from './results-sync'
 import { ResultsMap, type MapPoint } from './results-map'
+import { MapPopoverCard } from '@/components/saved/map-popover-card'
+import type { FavoriteLabels } from '@/components/saved/favorite-button'
 import { cn } from '@/lib/utils'
 
 /**
@@ -22,6 +24,7 @@ export function ResultsView({
   bounds,
   origin,
   locale,
+  returnTo,
   labels,
 }: {
   children: ReactNode
@@ -29,11 +32,18 @@ export function ResultsView({
   bounds: readonly [number, number, number, number]
   origin: { lat: number; lng: number } | null
   locale: string
+  /** Where a sign-in prompt should send the visitor back to, query string included. */
+  returnTo: string
   labels: {
     showMap: string
-    hideMap: string
+    showList: string
     unavailable: string
     searchThisArea: string
+    closePopover: string
+    viewListing: string
+    openNow: string
+    closed: string
+    favorite: FavoriteLabels
   }
 }) {
   const [mapOpen, setMapOpen] = useState(false)
@@ -48,7 +58,10 @@ export function ResultsView({
       <div className="mb-4 flex justify-end lg:hidden">
         <Button variant="outline" size="sm" onClick={() => setMapOpen((open) => !open)}>
           {mapOpen ? <List /> : <MapIcon />}
-          {mapOpen ? labels.hideMap : labels.showMap}
+          {/* The map replaces the list on small screens, so the toggle names the
+              thing it will bring back — it previously read "Hide list" while the
+              list was already hidden. */}
+          {mapOpen ? labels.showList : labels.showMap}
         </Button>
       </div>
 
@@ -76,9 +89,24 @@ export function ResultsView({
               points={points}
               bounds={bounds}
               origin={origin}
-              locale={locale}
-              labels={{ searchThisArea: labels.searchThisArea }}
+              labels={{
+                searchThisArea: labels.searchThisArea,
+                close: labels.closePopover,
+              }}
               onFailure={() => setMapFailed(true)}
+              renderPopover={(point) => (
+                <MapPopoverCard
+                  point={point}
+                  locale={locale}
+                  returnTo={returnTo}
+                  labels={{
+                    viewListing: labels.viewListing,
+                    openNow: labels.openNow,
+                    closed: labels.closed,
+                    favorite: labels.favorite,
+                  }}
+                />
+              )}
             />
           </div>
         )}

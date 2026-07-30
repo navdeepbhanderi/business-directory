@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import { mapColors } from '@/lib/brand'
 import { useResultsHover } from './results-sync'
@@ -54,17 +54,22 @@ export function ResultsMap({
   points,
   bounds,
   origin,
-  locale,
   labels,
   onFailure,
+  renderPopover,
 }: {
   points: MapPoint[]
   /** Market bounds, used when there are no results to frame. */
   bounds: readonly [number, number, number, number]
   origin: { lat: number; lng: number } | null
-  locale: string
-  labels: { searchThisArea: string }
+  labels: { searchThisArea: string; close: string }
   onFailure: () => void
+  /**
+   * Contents of the popover for a selected pin. Passed in rather than built here
+   * so the map does not have to know about favourites, and so this stays the only
+   * file that touches MapLibre.
+   */
+  renderPopover?: (point: MapPoint) => ReactNode
 }) {
   const container = useRef<HTMLDivElement | null>(null)
   const map = useRef<MapLibreMap | null>(null)
@@ -73,6 +78,7 @@ export function ResultsMap({
   // exists inside the dynamic import's scope.
   const source = useRef<GeoJSONSource | null>(null)
   const [ready, setReady] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const { hoveredId, setHoveredId } = useResultsHover()
 
   // Initialise once. Point data is pushed in through a separate effect so a
@@ -181,9 +187,22 @@ export function ResultsMap({
             })
           })
 
+          /*
+           * A pin opens a popover rather than navigating. Navigating on click made
+           * the map a slower way to do what the list already does; the point of a
+           * map is to compare places before committing to one — which means being
+           * able to save a listing without leaving the map.
+           */
           instance.on('click', 'pins', (event) => {
-            const slug = event.features?.[0]?.properties?.['slug'] as string | undefined
-            if (slug) window.location.assign(`/${locale}/business/${slug}`)
+            const id = event.features?.[0]?.properties?.['id'] as string | undefined
+            setSelectedId(id ?? null)
+          })
+
+          // Clicking the basemap dismisses it. Registered after the pin handler,
+          // and guarded by a hit test, so the two do not fight.
+          instance.on('click', (event) => {
+            const hits = instance.queryRenderedFeatures(event.point, { layers: ['pins'] })
+            if (hits.length === 0) setSelectedId(null)
           })
 
           for (const layer of ['clusters', 'pins']) {
@@ -271,6 +290,14 @@ export function ResultsMap({
     previousHover.current = hoveredId
   }, [hoveredId, ready])
 
+  /*
+   * Derived, not synchronised. A filter change can remove the selected listing,
+   * and the obvious fix — an effect that clears `selectedId` when `points`
+   * changes — is a cascading render for something a lookup already handles: if the
+   * pin is gone, this is null and no popover renders. The stale id costs nothing.
+   */
+  const selected = selectedId ? (points.find((point) => point.id === selectedId) ?? null) : null
+
   return (
     <div className="relative size-full">
       <div ref={container} className="size-full" aria-hidden />
@@ -278,6 +305,28 @@ export function ResultsMap({
           accessible source of truth — so it is hidden from assistive tech
           rather than given a role it cannot honour. */}
       <span className="sr-only">{labels.searchThisArea}</span>
+
+      {/*
+        Anchored to the bottom of the map rather than to the pin's screen
+        position. A tethered popover has to be re-projected on every pan and zoom
+        and still gets clipped at the edges; this cannot be clipped, does not move
+        under the cursor, and matches what people are used to on a phone.
+      */}
+      {selected && renderPopover && (
+        <div className="absolute inset-x-3 bottom-3 z-10">
+          <div className="rounded-card border-line bg-surface shadow-card border p-3">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              aria-label={labels.close}
+              className="text-ink-muted hover:text-ink absolute end-4 top-3 text-lg leading-none"
+            >
+              ×
+            </button>
+            {renderPopover(selected)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

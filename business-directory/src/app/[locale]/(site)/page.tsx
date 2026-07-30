@@ -13,6 +13,7 @@ import { localizedText } from '@/lib/i18n-content'
 import { formatCount } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { BusinessCard } from '@/components/directory/business-card'
+import { CardActions } from '@/components/saved/card-actions'
 import { SectionHeading } from '@/components/directory/section-heading'
 
 /**
@@ -171,6 +172,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               locale={locale}
               labels={cardLabels}
               href={`${base}/business/${row.slug}`}
+              actions={
+                <CardActions
+                  businessId={row.id}
+                  businessName={localizedText(row.name, row.name_i18n, locale)}
+                  locale={locale}
+                  dict={dict}
+                />
+              }
               business={{
                 id: row.id,
                 slug: row.slug,

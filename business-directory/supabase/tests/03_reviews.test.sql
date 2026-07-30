@@ -141,6 +141,9 @@ select is(
         'auth_role', 'is_admin', 'owns_business', 'business_is_public',
         'is_open_at', 'directory_stats', 'facet_amenities', 'facet_localities',
         'nearby_businesses', 'review_eligibility',
+        -- Slug-scoped reads of a shared list: they need DEFINER precisely because
+        -- the policies hide the list, and they expose only what its owner shared.
+        'shared_list', 'shared_list_items',
         -- Called by Supabase's auth service, which is granted explicitly.
         'custom_access_token_hook'
       )

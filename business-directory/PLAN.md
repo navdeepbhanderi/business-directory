@@ -1,6 +1,6 @@
 # Openly — Build Plan
 
-**Status:** Phases 0–6 complete · Phase 7 next · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phases 0–7 complete · Phase 8 next · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -868,15 +868,78 @@ that member's votes — the seed gives everyone plenty elsewhere — which is th
 </details>
 
 <details open>
-<summary><b>Phase 7 · Favorites &amp; lists</b> — 2 sessions</summary>
+<summary><b>Phase 7 · Favorites &amp; lists</b> — ✅ <b>complete</b></summary>
 
-Optimistic favorite toggles wired everywhere a card appears — replacing the
-prototype's never-imported `ListsManager`. Custom lists with CRUD, notes,
-reordering, and public sharing via `share_slug`. Saved searches.
+Saving works from every surface a listing appears on, lists can be annotated,
+ordered, and shared by link, and searches can be kept and re-run.
 
-**Exit:** favorite from a search card, a map popover, and a listing page; all
-three stay in sync and survive reload. A shared list opens for a signed-out
-visitor.
+**Delivered**
+
+| Area | What landed |
+| --- | --- |
+| Favourites | A save control on every card, in the map popover, and on the listing page. Signed out it is a sign-in link carrying a return path, not a button that fails |
+| Lists | Create, rename, describe, delete; a listing can sit in as many as you like, and creating a list from a card puts the listing in it in the same step |
+| Notes and order | A note per entry — the reason a list is worth sending — and up/down reordering applied in one SQL statement |
+| Sharing | An unguessable 96-bit slug minted by the database; going private destroys it, so a link already passed around stops working |
+| Saved searches | Stored as parameter pairs rather than a URL, so they survive a change to how search URLs are written and can be matched against new listings in Phase 11 |
+| Map popover | A pin now opens a card with the name, rating, whether it is open, and a save control. It used to navigate on click, which made the map a slower list |
+
+**The leak this phase found**
+
+`lists_select_own_or_shared` allowed *any* caller to select rows whose visibility
+was `unlisted` or `public`. PostgREST will happily answer `select * from lists`,
+so every unlisted list — and through `list_items`, its contents and its notes —
+was readable by anyone who asked for the whole table. "Only people with the link"
+was not a restriction; it was a label.
+
+Sharing is now a capability: the policies show a list to its owner only, and a
+stranger reads one through `shared_list(slug)` / `shared_list_items(slug)`, which
+take the slug and expose nothing that can be enumerated. An unpublished listing
+inside a shared list drops out of it, and a revoked link 404s rather than
+resolving to an empty page. The Phase 1 test that asserted the old behaviour —
+`select ... where share_slug = ...` as an anonymous caller, which passed — has
+been rewritten to assert the opposite, and 15 new pgTAP assertions cover the rest.
+
+**Where the state lives, and why it is not context**
+
+The exit criterion is that a favourite toggled on a search card, in the map
+popover, and on the listing page agree. The obvious implementation — one React
+context in the layout — did not hold. On the search page the results stream inside
+a Suspense boundary and arrive as `children` of a Client Component, and the cards
+there kept whatever state they hydrated with: if the fetch landed after they
+hydrated, every heart stayed empty though the provider had the answer. It
+reproduced on that one page, intermittently.
+
+The state now lives in a module store read through `useSyncExternalStore`. Every
+subscriber re-renders when the snapshot changes, wherever it sits in the tree and
+whichever bundle it arrived in — the guarantee context could not give here. It
+also survives client-side navigation, so moving between pages does not re-fetch.
+
+**Other defects found**
+
+1. **The map toggle read "Hide list" while the list was already hidden.** On a
+   phone the map replaces the list, so the button's job is to bring the list back;
+   it now says "Show list". Found because an end-to-end test could not find the
+   control it needed.
+2. **The save button renamed itself when pressed** ("Save: X" → "Saved: X") while
+   also setting `aria-pressed`. That announces the change twice, and it means the
+   control someone is addressing stops existing under that name the moment they
+   press it — which is exactly how a test came to click a button that had
+   vanished. The accessible name is now stable and `aria-pressed` carries the
+   state.
+3. **`share_slug` was never generated.** The check constraint requires one for a
+   shared list, so before this phase a list could not legally leave `private` at
+   all. The trigger also refuses a client-supplied slug: a memorable one defeats
+   the only protection an unlisted list has.
+
+**Exit criteria — met**
+
+- A favourite saved from a search card, from the map popover, and from the listing
+  page: all three agree, on the same page without a reload, and after one.
+- A shared list opens for a signed-out visitor, notes included; a guessed slug and
+  a revoked link both 404.
+- 156 unit · 111 pgTAP · 12 new end-to-end assertions across both viewports.
+
 </details>
 
 <details open>
@@ -1119,6 +1182,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Phase 5 complete.** Supabase Auth with SSR cookie sessions, email confirmation, password reset, OTP, Google OAuth, avatar storage, account settings and deletion. Caught and reverted a header change that had silently turned all 200 prerendered listing pages dynamic                                                                                                                                                |
 | 2026-07-30 | **Phase 6 data layer.** Review photo storage, database-backed rate limiting, SQL-side helpful sort, eligibility RPC. Found that `record_audit` and `consume_rate_limit` were callable by any signed-in user, and that posting a review as a signed-in user failed outright because the column guard blocked its own rating trigger. Interface still to come                                                               |
 | 2026-07-30 | **Phase 6 complete.** Composer with photo upload and guest drafts, 24-hour edit window, helpful votes, owner replies, reports into the moderation queue. Reviews render on statically generated pages by splitting content (anon, prerendered) from viewer state (`/api/review-context`, after mount). Found that `service_role` had no table grants at all, a hydration mismatch on every listing page, and a transient prerender fetch failure that also explains the long-standing "Nearby" gaps |
+| 2026-07-30 | **Phase 7 complete.** Favourites on every surface, lists with notes, ordering and link sharing, saved searches, and a map popover that can save without leaving the map. Found that unlisted lists were readable by anyone who scanned the table, that share slugs were never generated at all, and that React context could not keep the search page's cards in step with the rest |
 
 ---
 
@@ -1361,3 +1425,37 @@ target and is not a detail to discover later.
 | A build that failed on 1 page of 235 | Transient `fetch failed` under 11 prerender workers; the retry that fixes it also fixed the "Nearby" section missing from 26 of 101 pages, which had been recorded as an unexplained known issue |
 | The round-trip test | The helpful button reverted to unpressed as soon as the list re-rendered |
 | The round-trip test, twice more | Both failures were the test's own fault: racing its optimistic UI, then counting votes it had not scoped to the listing |
+
+### Phase 7 — Favourites, lists, and sharing
+
+**Decisions taken during the build**
+
+- **Saved state is a module store, not a context.** Context is the right default
+  and it failed here for a structural reason worth remembering: components that
+  arrive as `children` of a Client Component inside a streamed Suspense boundary
+  do not reliably re-render when a context above them changes. A store read
+  through `useSyncExternalStore` has no such gap, and it is what makes "all three
+  buttons agree" a property of the design rather than something to keep testing.
+- **Sharing is a capability, not a row property.** A policy that says "anyone may
+  read rows marked unlisted" is not link-only access, because a client can ask for
+  all of them. The slug is checked inside a function; the table answers nobody.
+- **The slug is minted and destroyed by a trigger.** Making a list private has to
+  revoke the existing link, not park it, and no write path should be trusted to
+  remember that.
+- **Reordering is one statement.** One update per item can leave a list half
+  reordered if the page is closed midway, and it costs a round trip per row.
+- **Up/down buttons rather than drag and drop.** Dragging is unusable by keyboard,
+  awkward on touch, and needs a library. The order is submitted the same way
+  either way.
+- **A pin opens a popover.** Navigating on click made the map a slower version of
+  the list; the point of a map is to compare places before committing to one.
+
+**Defects found, and by what**
+
+| Found by | Defect |
+| --- | --- |
+| Writing the pgTAP suite | Any caller could enumerate every unlisted and public list, notes included. The Phase 1 test asserted this as a feature |
+| Writing the pgTAP suite | `share_slug` was never generated, so no list could legally become shareable |
+| The end-to-end round trip | Favourite state never appeared on the search page after a reload — cards inside a streamed Suspense boundary did not re-render on a context change |
+| The end-to-end round trip | The mobile map toggle said "Hide list" when the list was already hidden |
+| The end-to-end round trip | The save button renamed itself when pressed, which double-announces the change and made the control unaddressable mid-interaction |

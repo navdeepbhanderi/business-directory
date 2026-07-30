@@ -40,6 +40,9 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
 
   const primary = [
     { href: `${base}/search`, label: dict.nav.search },
+    // Saved sits in the shell rather than only inside the account page: a
+    // favourite nobody can find again is a favourite that was not worth making.
+    { href: `${base}/account/saved`, label: dict.saved.heading },
     { href: `${base}/about`, label: dict.footer.about },
   ]
 

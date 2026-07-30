@@ -291,15 +291,35 @@ select is(
 
 select pg_temp.become_postgres();
 
--- A shared list is reachable by anyone holding the link.
-insert into public.lists (owner_id, name, visibility, share_slug)
-values ((select user_a from fx), 'Shared picks', 'unlisted', 'shared-picks-demo');
+/*
+ * A shared list is reachable by anyone holding the link — and by nobody else.
+ *
+ * This assertion used to read `select ... from public.lists where share_slug = ...`
+ * and pass, which is precisely the problem Phase 7 found: the policy allowed a
+ * table scan of every unlisted list, so the link was not a credential. Reading it
+ * by slug through the function is the only way in now, and the table itself
+ * answers nothing.
+ */
+insert into public.lists (owner_id, name, visibility)
+values ((select user_a from fx), 'Shared picks', 'unlisted');
 
 select pg_temp.become_anon();
 
 select is(
-  (select count(*) from public.lists where share_slug = 'shared-picks-demo')::int, 1,
-  'a shared list is readable without signing in'
+  (select count(*) from public.lists)::int, 0,
+  'a shared list is not readable by scanning the table'
+);
+
+select pg_temp.become_postgres();
+
+select is(
+  (
+    select count(*)::int from public.shared_list(
+      (select share_slug from public.lists where name = 'Shared picks')
+    )
+  ),
+  1,
+  'a shared list is readable without signing in, by presenting its slug'
 );
 
 select pg_temp.become_postgres();
