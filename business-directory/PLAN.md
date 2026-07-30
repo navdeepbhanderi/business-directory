@@ -1,6 +1,6 @@
 # India Business Directory — Build Plan
 
-**Status:** Phase 0 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
+**Status:** Phase 1 complete · **Owner:** Navdeep Bhanderi · **Created:** 2026-07-30
 **Launch market:** India · **Architecture:** multi-market, multi-locale from day one
 **Goal:** turn a frontend-only prototype into a production-grade, genuinely working
 product — and the strongest case study on
@@ -539,17 +539,42 @@ repo pushed and the project connected.
 </details>
 
 <details open>
-<summary><b>Phase 1 · Data layer</b> — 3–4 sessions</summary>
+<summary><b>Phase 1 · Data layer</b> — ✅ <b>complete</b></summary>
 
-All migrations from [§4](#4-data-model). Extensions, tables, constraints,
-indexes, triggers. The `search_businesses` RPC and `is_open_at`. Every RLS
-policy from [§5](#5-authorization-model-rls). pgTAP tests for each policy.
-Seed: 12 categories, 6 cities with ~30 localities, ~120 businesses with hours,
-photos, services, offers, and ~800 reviews across ~80 profiles. Generated types.
+Ten migrations: 30 tables, 8 enums, 15 functions, RLS on every table. The
+`search_businesses` RPC combines weighted full-text ranking, PostGIS radius
+filtering, open-now evaluation, facets, and pagination in one statement.
+`is_open_at` evaluates in the _market's_ timezone and handles split shifts,
+past-midnight closing times, and festival date overrides.
 
-**Exit:** pgTAP suite green in CI. `search_businesses` returns correct results
-for query + distance + open-now + rating combined, verified by SQL test.
-An owner provably cannot edit a neighbour's listing.
+Seed: 6 cities, 30 localities, 12 India-specific categories, 80 accounts,
+120 businesses (100 published / 10 pending / 6 draft / 4 rejected), 996 hour
+rows, 789 reviews, 1,989 helpful votes, plus populated moderation queues.
+Deterministic via `setseed()`.
+
+**Delivered against exit criteria**
+
+| Gate                                          | Result                                                  |
+| --------------------------------------------- | ------------------------------------------------------- |
+| pgTAP policy suite                            | ✅ 68 assertions across 2 files                         |
+| Owner cannot edit a neighbour's listing       | ✅ asserted — RLS matches zero rows                     |
+| Combined query + distance + open-now + rating | ✅ `results_eq` pins it to exactly one expected listing |
+| Migrations apply from scratch                 | ✅ `db reset` clean                                     |
+| Generated types current                       | ✅ 30 row types; CI staleness check passes              |
+| `npm run verify`                              | ✅ lint, typecheck, 26 unit tests, build all green      |
+
+**Two defects this phase caught in its own work**
+
+1. `anon` and `authenticated` held no DML grants at all, so every policy was
+   unreachable — PostgREST would have answered "permission denied" for every
+   request. RLS narrows access; it does not grant it. Fixed by an explicit
+   grants migration, deliberately per-table rather than a blanket `grant all`,
+   so the grant is an outer boundary and the policy an inner one.
+2. Every seeded profile shared one `created_at` (all inserted in a single
+   transaction), which made `order by created_at offset 1` return the same row
+   twice — two test fixtures were secretly the same person, and the isolation
+   tests were passing vacuously.
+
 </details>
 
 <details open>
@@ -866,6 +891,7 @@ links), and 4 (a third case study) all get resolved by this project.
 | 2026-07-30 | **Market pivot: Bahrain → India, with multi-market architecture.** Launch locales `en` + `hi`; `Asia/Kolkata`, INR, `+91`. Market facts moved into a registry and translatable columns to `*_i18n jsonb`, so a new market or language is a data change rather than a migration. `areas` split into `cities` + `localities`. Multi-market moved from "out of scope" to "in scope as architecture, not as launched markets" |
 | 2026-07-30 | Next.js **16.2** rather than 15 — 16 is current stable and starting a greenfield build on the previous major is indefensible. Node bumped to **24 LTS**: Node 20 hit EOL 2026-04-30 and `@supabase/supabase-js` ≥ 2.110 requires Node 22+. `middleware.ts` → `proxy.ts` per the Next 16 convention                                                                                                                        |
 | 2026-07-30 | **Phase 0 complete.** Lint, typecheck, 26 unit tests, build, and 8 e2e tests all green; local Postgres 17.6 up with generated types. Vercel deploy still outstanding                                                                                                                                                                                                                                                      |
+| 2026-07-30 | **Phase 1 complete.** 30 tables, RLS everywhere, `search_businesses` and `is_open_at`, 68 pgTAP assertions, and a 120-listing India seed. Two self-inflicted defects caught by the suite: missing DML grants left every policy unreachable, and identical seeded `created_at` values made two test fixtures the same person |
 
 ---
 
@@ -899,3 +925,35 @@ mid-build that the plan above did not anticipate.
   toolchain to fix a dev-time DoS advisory. Revisit in Phase 12.
 
 **Not yet done:** Vercel deployment.
+
+### Phase 1 — Data layer
+
+**Decisions taken during the build**
+
+- **Role lives in a JWT claim.** A custom access token hook mirrors
+  `profiles.role` into `user_role`, and `auth_role()` reads the claim. Policies
+  therefore never query `profiles`, which is what keeps the policy graph
+  acyclic. A `SECURITY DEFINER` fallback covers tokens minted before the hook.
+- **Column-level protection is a trigger, not a policy.** RLS chooses rows, not
+  columns. Owners may edit their listing's content but not `verified`, `status`,
+  `owner_id`, `rating`, or `slug`; users may not touch their own `role` or ban
+  state. Both are `BEFORE UPDATE` triggers comparing `OLD`/`NEW`.
+- **`search_vector` is trigger-maintained rather than `GENERATED`.** The weights
+  include city, locality, and category names, and a generated column may only
+  reference its own row.
+- **Text matching runs three ways at once** — `english` for stemming, `simple`
+  for Devanagari (Postgres ships no Hindi stemmer), and `pg_trgm` for typos and
+  transliteration. Verified: "thalis" matches "Thali", "मिठाई" matches the
+  sweets category, "Bhojanalya" matches "Bhojanalaya".
+- **Claim approval is one `SECURITY DEFINER` function.** Assigning the owner,
+  verifying the listing, promoting the claimant, rejecting competing claims, and
+  writing the audit entry happen atomically. Doing it from application code
+  would leave half-approved listings behind on any failure.
+- **`audit_log` has no INSERT policy at all.** Writes go only through
+  `record_audit()`. There is no path for a client to forge an entry.
+- **Seed data is invented, not real.** Names are plausible per city and category
+  but reference no real establishment — attaching fabricated ratings to a real
+  business would be defamatory.
+
+**Deferred:** the p95 <150ms search benchmark. At 100 seeded rows the number
+would be meaningless; it belongs with the 10k-row load in Phase 12.
